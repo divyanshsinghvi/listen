@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Listen</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: transparent;
+      overflow: hidden;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    #app {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    .container {
+      background: rgba(20, 20, 30, 0.95);
+      backdrop-filter: blur(20px);
+      border-radius: 20px;
+      padding: 30px 40px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      min-width: 350px;
+      text-align: center;
+    }
+
+    .status-icon {
+      font-size: 48px;
+      margin-bottom: 15px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.8; }
+    }
+
+    .recording-icon {
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    .status-text {
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 500;
+      margin-bottom: 10px;
+    }
+
+    .status-subtext {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 14px;
+      margin-top: 8px;
+    }
+
+    .transcription {
+      color: #4CAF50;
+      font-size: 14px;
+      margin-top: 15px;
+      padding: 10px;
+      background: rgba(76, 175, 80, 0.1);
+      border-radius: 8px;
+      max-height: 100px;
+      overflow-y: auto;
+      word-wrap: break-word;
+    }
+
+    .error {
+      color: #f44336;
+      background: rgba(244, 67, 54, 0.1);
+    }
+
+    .processing-spinner {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      margin: 10px 0;
+    }
+
+    .processing-spinner:after {
+      content: " ";
+      display: block;
+      width: 32px;
+      height: 32px;
+      margin: 4px;
+      border-radius: 50%;
+      border: 3px solid #fff;
+      border-color: #fff transparent #fff transparent;
+      animation: spinner 1.2s linear infinite;
+    }
+
+    @keyframes spinner {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .waveform {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      height: 40px;
+      margin: 15px 0;
+    }
+
+    .waveform span {
+      display: inline-block;
+      width: 4px;
+      background: #4CAF50;
+      border-radius: 2px;
+      animation: wave 1s ease-in-out infinite;
+    }
+
+    .waveform span:nth-child(1) { height: 10px; animation-delay: 0s; }
+    .waveform span:nth-child(2) { height: 20px; animation-delay: 0.1s; }
+    .waveform span:nth-child(3) { height: 30px; animation-delay: 0.2s; }
+    .waveform span:nth-child(4) { height: 20px; animation-delay: 0.3s; }
+    .waveform span:nth-child(5) { height: 10px; animation-delay: 0.4s; }
+
+    @keyframes wave {
+      0%, 100% { transform: scaleY(0.5); }
+      50% { transform: scaleY(1); }
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <div id="status-display">
+        <!-- Content will be dynamically updated -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    const statusDisplay = document.getElementById('status-display');
+
+    function updateUI(state, data = {}) {
+      switch (state) {
+        case 'recording':
+          statusDisplay.innerHTML = `
+            <div class="status-icon recording-icon">🎙️</div>
+            <div class="status-text">Listening...</div>
+            <div class="waveform">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <div class="status-subtext">Press Ctrl+Shift+Space to stop</div>
+          `;
+          break;
+
+        case 'processing':
+          statusDisplay.innerHTML = `
+            <div class="status-icon">⚙️</div>
+            <div class="status-text">Processing...</div>
+            <div class="processing-spinner"></div>
+            <div class="status-subtext">Transcribing audio</div>
+          `;
+          break;
+
+        case 'completed':
+          statusDisplay.innerHTML = `
+            <div class="status-icon">✅</div>
+            <div class="status-text">Done!</div>
+            <div class="transcription">${data.text || 'No text detected'}</div>
+            <div class="status-subtext">Copied to clipboard - Paste anywhere</div>
+          `;
+          break;
+
+        case 'error':
+          statusDisplay.innerHTML = `
+            <div class="status-icon">❌</div>
+            <div class="status-text">Error</div>
+            <div class="transcription error">${data.error || 'Unknown error'}</div>
+            <div class="status-subtext">Press Esc to close</div>
+          `;
+          break;
+
+        default:
+          statusDisplay.innerHTML = `
+            <div class="status-icon">🎤</div>
+            <div class="status-text">Ready</div>
+            <div class="status-subtext">Press Ctrl+Shift+Space to start</div>
+          `;
+      }
+    }
+
+    // Listen for state updates from main process
+    ipcRenderer.on('recording-state', (event, data) => {
+      updateUI(data.state, data);
+    });
+
+    // Initialize with idle state
+    updateUI('idle');
+
+    // Handle escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        ipcRenderer.send('cancel-recording');
+      }
+    });
+  </script>
+</body>
+</html>

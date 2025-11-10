@@ -1,0 +1,38 @@
+{
+  "name": "listen",
+  "version": "1.0.0",
+  "description": "System-wide voice-to-text overlay app",
+  "main": "dist/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "concurrently \"npm run build:watch\" \"wait-on dist/main.js && electron .\"",
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "package": "electron-builder"
+  },
+  "keywords": ["voice", "speech-to-text", "whisper", "overlay"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "concurrently": "^8.2.2",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "typescript": "^5.3.3",
+    "wait-on": "^7.2.0"
+  },
+  "dependencies": {
+    "electron-localshortcut": "^3.2.1"
+  },
+  "build": {
+    "appId": "com.listen.app",
+    "productName": "Listen",
+    "files": [
+      "dist/**/*",
+      "assets/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    }
+  }
+}
