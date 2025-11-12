@@ -1,14 +1,20 @@
-# Listen - Voice-to-Text Overlay App
+# Listen - Voice-to-Text App
 
-A system-wide voice-to-text overlay app inspired by WhisperFlow, allowing you to speak instead of typing anywhere on your system.
+A multi-platform voice-to-text app with intelligent model routing, allowing you to speak instead of typing.
 
 ## Features
 
-- 🎙️ System-wide voice recording with global hotkey
-- 🤖 Whisper-powered speech-to-text transcription
-- 📋 Automatic text insertion via clipboard
-- 🪟 Always-on-top overlay window
-- ⚡ Fast and responsive
+- 🎙️ **System-wide voice recording** (Desktop) / **One-tap recording** (Mobile)
+- 🤖 **Multiple SOTA STT models** with automatic selection:
+  - **Moonshine** (5-15x faster, optimized for edge devices)
+  - **Distil-Whisper** (6x faster, excellent accuracy)
+  - Faster-Whisper, Whisper.cpp, Python Whisper
+- 🧠 **Intelligent model routing** - Auto-selects best model for your needs
+- 📋 Automatic clipboard copy
+- 🪟 Always-on-top overlay (Desktop)
+- 📱 **Native iOS (Swift + WhisperKit)** and **Android (Kotlin + TFLite)** apps
+- 🔒 **100% offline** - All processing on-device, no cloud services
+- ⚡ Ultra-fast transcription (up to 15x real-time)
 
 ## Setup
 
@@ -17,31 +23,34 @@ A system-wide voice-to-text overlay app inspired by WhisperFlow, allowing you to
 npm install
 ```
 
-2. Install a local Whisper implementation (choose one):
+2. Install an STT model (choose one or more):
 
-   **Option A: whisper.cpp (Recommended - Fast & Lightweight)**
+   **Option A: Moonshine (Recommended - Fastest, optimized for edge devices)**
    ```bash
-   # Clone and build whisper.cpp
-   git clone https://github.com/ggerganov/whisper.cpp
-   cd whisper.cpp
-   make
-   sudo cp main /usr/local/bin/whisper-cpp
-
-   # Download a model (tiny, base, small, medium, or large)
-   bash ./models/download-ggml-model.sh base
-   mkdir -p ../models
-   cp models/ggml-base.bin ../models/
+   ./install-moonshine.sh
    ```
 
-   **Option B: Python Whisper**
+   **Option B: Distil-Whisper (Recommended for English desktop use)**
    ```bash
-   pip install openai-whisper
+   ./install-distil-whisper.sh
    ```
 
-   **Option C: faster-whisper (Optimized)**
+   **Option C: Faster-Whisper (Good balance)**
    ```bash
    pip install faster-whisper
    ```
+
+   **Option D: whisper.cpp (C++ implementation)**
+   ```bash
+   ./setup-whisper.sh
+   ```
+
+   **Option E: Python Whisper (Fallback)**
+   ```bash
+   ./install-python-whisper.sh
+   ```
+
+   > **Note:** The app will automatically use the fastest available model. Install multiple models for automatic fallback.
 
 3. Build and run:
 ```bash
@@ -67,12 +76,32 @@ npm run dev
 - `Ctrl+Shift+Space` - Start/Stop recording
 - `Esc` - Cancel recording and close overlay
 
-## Configuration
+## Model Selection & Routing
 
-Edit the settings in the app to customize:
-- Hotkey combination
-- Whisper model selection
-- Audio quality settings
+Listen uses an **intelligent routing system** that automatically selects the best available model based on your requirements.
+
+**Recommended Models:**
+- **Desktop (English)**: Distil-Whisper Small (6x faster, excellent accuracy)
+- **Desktop (Multilingual)**: Moonshine Base (5-15x faster, good accuracy)
+- **Mobile (iOS/Android)**: Moonshine Tiny (ultra-fast, only 40MB)
+
+See [MODEL_COMPARISON.md](./MODEL_COMPARISON.md) for detailed benchmarks and comparisons.
+
+## Platform Support
+
+- ✅ **Linux** (Desktop - Electron)
+- ✅ **iOS 16+** (Native Swift app) - See [mobile/ios/README.md](./mobile/ios/README.md)
+- ✅ **Android 7+** (Native Kotlin app) - See [mobile/android/README.md](./mobile/android/README.md)
+- 🔜 macOS (Desktop - Coming soon)
+- 🔜 Windows (Desktop - Coming soon)
+
+## Documentation
+
+- [Architecture Overview](./ARCHITECTURE.md) - System design and modular architecture
+- [Model Comparison](./MODEL_COMPARISON.md) - Detailed STT model benchmarks
+- [Quick Start Guide](./QUICKSTART.md) - Get up and running in 5 minutes
+- [iOS README](./mobile/ios/README.md) - iOS app documentation
+- [Android README](./mobile/android/README.md) - Android app documentation
 
 ## Requirements
 

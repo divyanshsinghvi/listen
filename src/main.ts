@@ -1,11 +1,11 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, screen } from 'electron';
 import * as path from 'path';
 import { RecordingManager } from './recording';
-import { TranscriptionService } from './transcription';
+import { ModularTranscriptionService } from './transcription-router';
 
 let mainWindow: BrowserWindow | null = null;
 let recordingManager: RecordingManager | null = null;
-let transcriptionService: TranscriptionService | null = null;
+let transcriptionService: ModularTranscriptionService | null = null;
 let isRecording = false;
 
 function createWindow() {
@@ -61,11 +61,19 @@ async function toggleRecording() {
 
       // Transcribe
       if (!transcriptionService) {
-        transcriptionService = new TranscriptionService();
+        transcriptionService = new ModularTranscriptionService();
+        await transcriptionService.initialize();
       }
 
       try {
-        const transcription = await transcriptionService.transcribe(audioFilePath);
+        // Auto-select best model for desktop
+        const transcription = await transcriptionService.transcribe(audioFilePath, {
+          routingPreferences: {
+            priority: 'balance',
+            platform: 'desktop',
+            language: 'en' // Can be made configurable
+          }
+        });
 
         // Copy to clipboard
         clipboard.writeText(transcription);
