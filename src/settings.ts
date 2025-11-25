@@ -43,7 +43,7 @@ export interface ListenSettings {
   saveHistory: boolean;
   historyLimit: number;
   autoDelete: boolean;
-  autoDelet eDays: number;
+  autoDeleteDays: number;
 
   // UI
   theme: 'light' | 'dark' | 'system';
