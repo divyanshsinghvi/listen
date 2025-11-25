@@ -25,32 +25,46 @@ npm install
 
 2. Install an STT model (choose one or more):
 
-   **Option A: Moonshine (Recommended - Fastest, optimized for edge devices)**
+   ### 🔥 **UNDER 1B Parameters** (Recommended - Edge-optimized)
+
+   **Option A: Parakeet TDT v3 (FASTEST - 3,333x real-time!)**
    ```bash
-   ./install-moonshine.sh
+   ./install-parakeet.sh  # 600M params, 6.32% WER, 25 languages
    ```
 
-   **Option B: Distil-Whisper (Recommended for English desktop use)**
+   **Option B: Moonshine (Mobile-optimized)**
    ```bash
-   ./install-distil-whisper.sh
+   ./install-moonshine.sh  # 40-200M params, 5-15x real-time
    ```
 
-   **Option C: Faster-Whisper (Good balance)**
+   **Option C: Distil-Whisper (Best for English)**
    ```bash
-   pip install faster-whisper
+   ./install-distil-whisper.sh  # 244M params, 6x real-time
    ```
 
-   **Option D: whisper.cpp (C++ implementation)**
+   **Option D: Faster-Whisper (Good balance)**
    ```bash
-   ./setup-whisper.sh
+   pip install faster-whisper  # 74M params, 4x real-time
    ```
 
-   **Option E: Python Whisper (Fallback)**
+   **Option E: whisper.cpp (C++ implementation)**
    ```bash
-   ./install-python-whisper.sh
+   ./setup-whisper.sh  # 74M params, 2x real-time
    ```
 
-   > **Note:** The app will automatically use the fastest available model. Install multiple models for automatic fallback.
+   **Option F: Python Whisper (Fallback)**
+   ```bash
+   ./install-python-whisper.sh  # 74M params, baseline
+   ```
+
+   ### 🎯 **OVER 1B Parameters** (Optional - Maximum accuracy)
+
+   **Option G: Canary Qwen 2.5B (#1 Accuracy)**
+   ```bash
+   ./install-canary.sh  # 2.5B params, 5.63% WER, 418x real-time
+   ```
+
+   > **Note:** The app will automatically use the fastest available model. Install multiple models for automatic fallback. **Only models you install will be used.**
 
 3. Build and run:
 ```bash

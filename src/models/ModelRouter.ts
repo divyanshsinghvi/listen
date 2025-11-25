@@ -11,6 +11,8 @@ import { DistilWhisperModel } from './DistilWhisperModel';
 import { WhisperCppModel } from './WhisperCppModel';
 import { FasterWhisperModel } from './FasterWhisperModel';
 import { PythonWhisperModel } from './PythonWhisperModel';
+import { ParakeetModel } from './ParakeetModel';
+import { CanaryModel } from './CanaryModel';
 
 export interface RoutingPreferences {
   priority: 'speed' | 'accuracy' | 'balance';
@@ -27,14 +29,20 @@ export class ModelRouter {
 
   constructor() {
     // Register all available models in priority order
+    // Models only used if installed - you choose what to download!
     this.models = [
-      new MoonshineModel('base'),
-      new MoonshineModel('tiny'),
-      new DistilWhisperModel('small'),
-      new DistilWhisperModel('medium'),
-      new FasterWhisperModel('base'),
-      new WhisperCppModel('base'),
-      new PythonWhisperModel('base'),
+      // Under 1B - Efficient models (recommended)
+      new ParakeetModel('v3'),         // 0.6B - 3,333x real-time! 🔥
+      new MoonshineModel('base'),      // ~200M - 5-15x real-time
+      new MoonshineModel('tiny'),      // ~40M - ultra lightweight
+      new DistilWhisperModel('small'), // ~244M - 6x real-time
+      new FasterWhisperModel('base'),  // ~74M - 4x real-time
+      new WhisperCppModel('base'),     // ~74M - 2x real-time
+      new PythonWhisperModel('base'),  // ~74M - baseline
+
+      // Over 1B - High accuracy (optional)
+      new CanaryModel(),               // 2.5B - 418x real-time, 5.63% WER
+      new DistilWhisperModel('medium'), // ~750M
     ];
   }
 
