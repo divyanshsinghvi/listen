@@ -18,12 +18,24 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
-echo "📦 Installing NVIDIA NeMo toolkit..."
-pip3 install nemo_toolkit['asr']
+echo "📦 Upgrading pip to fix dependency issues..."
+pip3 install --upgrade pip setuptools wheel
 
-echo "📦 Installing additional dependencies..."
-pip3 install torch torchaudio
-pip3 install omegaconf hydra-core
+echo "📦 Installing core dependencies first..."
+pip3 install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+echo "📦 Installing Cython (required for NeMo)..."
+pip3 install Cython
+
+echo "📦 Installing NeMo toolkit (this may take a few minutes)..."
+# Install NeMo with ASR support, avoiding the dependency resolver bug
+pip3 install --no-deps nemo_toolkit[asr]
+
+echo "📦 Installing remaining NeMo dependencies..."
+pip3 install omegaconf hydra-core>=1.1 pytorch-lightning torchmetrics
+pip3 install webdataset braceexpand editdistance einops packaging
+pip3 install pyannote.audio huggingface_hub transformers soundfile librosa
+pip3 install numpy scipy matplotlib pandas numba
 
 echo ""
 echo "✅ Parakeet TDT installation complete!"
