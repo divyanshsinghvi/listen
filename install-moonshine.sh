@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Install Moonshine - Fastest STT model (5x faster than Whisper)
+# Install Moonshine - Fastest STT model (5-15x faster than Whisper)
 
 set -e
 
@@ -14,19 +14,20 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
-echo "📦 Installing Moonshine ONNX..."
-pip3 install moonshine-onnx
-
-echo "📦 Installing ONNX Runtime..."
-pip3 install onnxruntime
+echo "📦 Installing Moonshine (useful-moonshine)..."
+pip3 install useful-moonshine
 
 echo ""
 echo "✅ Moonshine installed successfully!"
 echo ""
-echo "This is the FASTEST model available:"
-echo "- 5x faster than Whisper"
-echo "- ~200MB model size"
+echo "Model details:"
+echo "- Package: useful-moonshine"
+echo "- Speed: 5-15x faster than Whisper"
+echo "- Size: Tiny (~40MB) and Base (~200MB) variants"
 echo "- Optimized for edge/mobile devices"
+echo "- Backend: Keras (supports PyTorch, TensorFlow, JAX)"
+echo ""
+echo "First transcription will download the model automatically."
 echo ""
 echo "Next steps:"
 echo "1. npm install"
