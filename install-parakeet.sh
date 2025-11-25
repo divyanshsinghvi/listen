@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Install NVIDIA Parakeet TDT - FASTEST STT model (3,333x real-time!)
+# Fixed for WSL2/Ubuntu system package conflicts
 
 set -e
 
@@ -18,24 +19,21 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
-echo "📦 Upgrading pip to fix dependency issues..."
-pip3 install --upgrade pip setuptools wheel
+# Use --user to avoid system package conflicts
+export PIP_USER=1
 
-echo "📦 Installing core dependencies first..."
-pip3 install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+echo "📦 Upgrading pip (user installation)..."
+pip3 install --user --upgrade pip
 
-echo "📦 Installing Cython (required for NeMo)..."
-pip3 install Cython
+echo "📦 Installing PyTorch (CPU version)..."
+pip3 install --user torch torchaudio --index-url https://download.pytorch.org/whl/cpu
 
-echo "📦 Installing NeMo toolkit (this may take a few minutes)..."
-# Install NeMo with ASR support, avoiding the dependency resolver bug
-pip3 install --no-deps nemo_toolkit[asr]
+echo "📦 Installing Cython..."
+pip3 install --user Cython
 
-echo "📦 Installing remaining NeMo dependencies..."
-pip3 install omegaconf hydra-core>=1.1 pytorch-lightning torchmetrics
-pip3 install webdataset braceexpand editdistance einops packaging
-pip3 install pyannote.audio huggingface_hub transformers soundfile librosa
-pip3 install numpy scipy matplotlib pandas numba
+echo "📦 Installing NeMo ASR (this will take several minutes)..."
+# Install NeMo directly without trying to resolve all dependencies at once
+pip3 install --user nemo_toolkit[asr]
 
 echo ""
 echo "✅ Parakeet TDT installation complete!"
@@ -47,11 +45,16 @@ echo "- Speed: 3,333x real-time 🔥"
 echo "- Accuracy: 6.32% WER (excellent)"
 echo "- Languages: 25 (en, de, fr, es, it, pt, pl, nl, ro, cs, sk, bg, hr, sl, sr, mk, uk, be, et, lv, lt, mt, ga, cy)"
 echo ""
+echo "⚠️  Important: Make sure ~/.local/bin is in your PATH"
+echo "Add to ~/.bashrc if needed:"
+echo 'export PATH="$HOME/.local/bin:$PATH"'
+echo ""
 echo "First transcription will download the model automatically."
 echo ""
 echo "Next steps:"
-echo "1. npm install"
-echo "2. npm run build"
-echo "3. npm start"
+echo "1. source ~/.bashrc  # If you added PATH"
+echo "2. npm install"
+echo "3. npm run build"
+echo "4. npm start"
 echo ""
 echo "Parakeet will be auto-selected for maximum speed!"
