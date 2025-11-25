@@ -90,7 +90,7 @@ print(result)
       type: 'moonshine',
       speed: 'ultra-fast',
       accuracy: this.modelVariant === 'base' ? 'good' : 'fair',
-      sizeCategory: this.modelVariant,
+      sizeCategory: this.modelVariant === 'tiny' ? 'tiny' : 'small',
       languages: ['en', 'multilingual'],
       requiresGPU: false,
       estimatedMemory: this.modelVariant === 'tiny' ? '40MB' : '200MB',
