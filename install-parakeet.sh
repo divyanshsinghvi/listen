@@ -25,8 +25,8 @@ export PIP_USER=1
 echo "📦 Upgrading pip (user installation)..."
 pip3 install --user --upgrade pip
 
-echo "📦 Installing PyTorch (GPU/CUDA version)..."
-pip3 install --user torch torchaudio --index-url https://download.pytorch.org/whl/cu121
+echo "📦 Installing PyTorch 2.9 (CUDA 12.9 version)..."
+pip3 install --user torch torchaudio --index-url https://download.pytorch.org/whl/cu129
 
 echo "📦 Installing Cython..."
 pip3 install --user Cython
