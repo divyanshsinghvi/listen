@@ -89,7 +89,10 @@ def transcribe(audio_path, model_name, language='en'):
         asr_model.change_decoding_strategy(None)
 
     # Transcribe
-    transcription = asr_model.transcribe([audio_path])[0]
+    result = asr_model.transcribe([audio_path])[0]
+
+    # Extract text from Hypothesis object
+    transcription = result.text if hasattr(result, 'text') else str(result)
 
     print(transcription)
 
