@@ -48,8 +48,13 @@ async function testFullPipeline() {
     const duration = Date.now() - startTime;
     console.log(`✓ Transcription complete in ${duration}ms\n`);
 
+    // Debug: log the result object
+    console.log('DEBUG - Full result object:');
+    console.log(result);
+    console.log('\nDEBUG - Result keys:', Object.keys(result));
+
     // Display results
-    console.log('📋 RESULTS:');
+    console.log('\n📋 RESULTS:');
     console.log('═'.repeat(60));
     console.log(`Transcribed Text: "${result.text}"`);
     console.log(`Model Used: ${result.modelUsed}`);
