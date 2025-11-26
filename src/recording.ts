@@ -2,13 +2,16 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import * as os from 'os';
 
 const execAsync = promisify(exec);
 
 export class RecordingManager {
   private audioFilePath: string;
   private recordingProcess: any = null;
+  private recordingStream: any = null;
   private tempDir: string;
+  private platform: string;
 
   constructor() {
     this.tempDir = path.join(process.cwd(), 'temp');
@@ -16,13 +19,45 @@ export class RecordingManager {
       fs.mkdirSync(this.tempDir, { recursive: true });
     }
     this.audioFilePath = path.join(this.tempDir, `recording_${Date.now()}.wav`);
+    this.platform = os.platform();
   }
 
   async startRecording(): Promise<void> {
-    // Use arecord on Linux (ALSA)
-    // For macOS, you would use 'sox' or 'rec'
-    // For Windows, you would use different approach
+    if (this.platform === 'win32') {
+      return this.recordWithWindowsAudio();
+    } else {
+      return this.recordWithLinuxAudio();
+    }
+  }
 
+  private recordWithWindowsAudio(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        const record = require('node-record-lpcm16');
+        const file = fs.createWriteStream(this.audioFilePath);
+
+        // Start recording
+        this.recordingStream = record.record({
+          sampleRate: 16000,
+          channels: 1,
+          audioType: 'wav'
+        });
+
+        this.recordingStream.pipe(file);
+
+        this.recordingStream.on('error', (error: Error) => {
+          console.error('Recording error:', error);
+          reject(error);
+        });
+
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  private recordWithLinuxAudio(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
         // Check if arecord is available (Linux)
@@ -86,7 +121,15 @@ export class RecordingManager {
 
   async stopRecording(): Promise<string> {
     return new Promise((resolve) => {
-      if (this.recordingProcess) {
+      if (this.platform === 'win32' && this.recordingStream) {
+        // Stop Windows recording
+        this.recordingStream.stop();
+
+        // Wait for file to be written
+        setTimeout(() => {
+          resolve(this.audioFilePath);
+        }, 500);
+      } else if (this.recordingProcess) {
         this.recordingProcess.on('close', () => {
           resolve(this.audioFilePath);
         });
@@ -100,7 +143,10 @@ export class RecordingManager {
   }
 
   cancelRecording(): void {
-    if (this.recordingProcess) {
+    if (this.platform === 'win32' && this.recordingStream) {
+      this.recordingStream.stop();
+      this.recordingStream = null;
+    } else if (this.recordingProcess) {
       this.recordingProcess.kill('SIGKILL');
       this.recordingProcess = null;
     }
