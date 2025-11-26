@@ -66,8 +66,13 @@ class ParakeetServer:
         """Main server loop - read requests from stdin, write responses to stdout"""
         sys.stderr.write('[SERVER] Ready to accept requests\n')
         sys.stderr.flush()
-        sys.stdout.write(json.dumps({'status': 'ready'}) + '\n')
-        sys.stdout.flush()
+
+        # Send ready message multiple times to ensure it's received
+        for _ in range(5):
+            sys.stdout.write(json.dumps({'status': 'ready'}) + '\n')
+            sys.stdout.flush()
+            import time
+            time.sleep(0.1)
 
         while True:
             try:

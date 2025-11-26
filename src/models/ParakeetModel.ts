@@ -74,12 +74,12 @@ export class ParakeetModel extends STTModel {
           ParakeetModel.serverProcess = null;
         });
 
-        // Timeout if server doesn't start
+        // Timeout if server doesn't start (increased timeout for model loading)
         setTimeout(() => {
           if (!initialized) {
-            reject(new Error('Parakeet server startup timeout'));
+            reject(new Error('Parakeet server startup timeout - model may still be loading'));
           }
-        }, 30000);
+        }, 60000);
       } catch (error) {
         reject(error);
       }
