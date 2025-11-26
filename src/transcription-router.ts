@@ -33,21 +33,30 @@ export class ModularTranscriptionService {
     }
   ): Promise<TranscriptionResult & { modelUsed: string }> {
     if (!this.initialized) {
+      console.log('📌 Service not initialized, initializing now...');
       await this.initialize();
     }
 
     try {
+      console.log('🎯 Stage 1.1: Selecting best model...');
+      const startTime = Date.now();
+
       const result = await this.router.transcribe(
         audioFilePath,
         options?.transcriptionOptions,
         options?.routingPreferences
       );
 
-      console.log(`Transcribed with ${result.modelUsed} in ${result.duration}ms`);
+      const serviceTime = Date.now() - startTime;
+      console.log(`✓ Stage 1.2: Model selected and used for transcription`);
+      console.log(`  Model: ${result.modelUsed}`);
+      console.log(`  Text length: ${result.text.length} characters`);
+      console.log(`  Confidence: ${(result.confidence * 100).toFixed(1)}%`);
+      console.log(`  Service duration: ${serviceTime}ms`);
 
       return result;
     } catch (error) {
-      console.error('Transcription error:', error);
+      console.error('❌ Transcription error:', error);
       throw error;
     }
   }

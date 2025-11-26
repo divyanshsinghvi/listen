@@ -46,7 +46,12 @@ async function toggleRecording() {
   if (!isRecording) {
     // Start recording
     isRecording = true;
-    console.log('🎙️ Starting recording...');
+    const recordingStartTime = Date.now();
+    console.log('\n' + '='.repeat(60));
+    console.log('🎙️ RECORDING STARTED');
+    console.log(`⏱️  [${new Date().toLocaleTimeString()}]`);
+    console.log('='.repeat(60));
+
     mainWindow.show();
     mainWindow.setAlwaysOnTop(true, 'screen-saver');
     mainWindow.webContents.send('recording-state', { state: 'recording' });
@@ -57,7 +62,7 @@ async function toggleRecording() {
 
     try {
       await recordingManager.startRecording();
-      console.log('✓ Recording started successfully');
+      console.log('✓ Audio stream initialized');
     } catch (error) {
       console.error('❌ Recording start error:', error);
       isRecording = false;
@@ -65,22 +70,32 @@ async function toggleRecording() {
   } else {
     // Stop recording
     isRecording = false;
-    console.log('⏹️ Stopping recording...');
+    const pipelineStart = Date.now();
+    console.log('\n' + '='.repeat(60));
+    console.log('⏹️ RECORDING STOPPED');
+    console.log('='.repeat(60));
+
     mainWindow.webContents.send('recording-state', { state: 'processing' });
 
     if (recordingManager) {
       try {
+        const recordStop = Date.now();
         const audioFilePath = await recordingManager.stopRecording();
-        console.log(`✓ Recording stopped. Audio file: ${audioFilePath}`);
+        const recordTime = Date.now() - recordStop;
+        console.log(`✓ Recording finalized (${recordTime}ms)`);
 
         // Check if file exists and has size
         const fs = require('fs');
         if (fs.existsSync(audioFilePath)) {
           const size = fs.statSync(audioFilePath).size;
-          console.log(`📁 Audio file size: ${size} bytes`);
+          console.log(`📁 Audio file: ${audioFilePath}`);
+          console.log(`   Size: ${(size / 1024).toFixed(2)} KB`);
+          console.log(`   Duration: ${(size / 32000).toFixed(1)}s (approx)`);
         } else {
           throw new Error(`Audio file not found: ${audioFilePath}`);
         }
+
+        console.log(`\n⏱️  [Stage: File Ready] +${Date.now() - pipelineStart}ms`);
 
         // Transcription service already initialized on app startup
         if (!transcriptionService) {
@@ -89,7 +104,9 @@ async function toggleRecording() {
         }
 
         try {
-          console.log('🔄 Starting transcription...');
+          console.log(`\n⏱️  [Stage: Starting Transcription] +${Date.now() - pipelineStart}ms`);
+
+          const transcribeStart = Date.now();
           // Auto-select best model for desktop
           const result = await transcriptionService.transcribe(audioFilePath, {
             routingPreferences: {
@@ -99,27 +116,52 @@ async function toggleRecording() {
             }
           });
 
-          console.log(`✓ Transcription complete: "${result.text}" (${result.modelUsed})`);
+          const transcribeTime = Date.now() - transcribeStart;
+          console.log(`\n⏱️  [Stage: Transcription Complete] +${Date.now() - pipelineStart}ms (took ${transcribeTime}ms)`);
+
+          console.log(`\n📊 TRANSCRIPTION RESULTS:`);
+          console.log(`  ✓ Text: "${result.text}"`);
+          console.log(`  ✓ Model: ${result.modelUsed}`);
+          console.log(`  ✓ Confidence: ${(result.confidence * 100).toFixed(1)}%`);
+          console.log(`  ℹ️ Model inference: ${result.duration}ms`);
 
           // Copy to clipboard
+          const clipboardStart = Date.now();
           clipboard.writeText(result.text);
-          console.log('📋 Text copied to clipboard');
+          const clipboardTime = Date.now() - clipboardStart;
+          console.log(`\n⏱️  [Stage: Clipboard] +${Date.now() - pipelineStart}ms (took ${clipboardTime}ms)`);
+          console.log(`  📋 Text copied to clipboard`);
 
           // Hide window immediately
           mainWindow?.hide();
 
           // Auto-paste using Ctrl+V
-          console.log(`📝 Auto-pasting at cursor position...`);
+          console.log(`\n⏱️  [Stage: Auto-Paste] +${Date.now() - pipelineStart}ms`);
+          console.log(`  📝 Attempting to paste at cursor position...`);
 
           // Small delay to ensure window focus is released
           setTimeout(async () => {
+            const pasteStart = Date.now();
             try {
               // Use Python to simulate Ctrl+V paste
               await execAsync('python -c "import pyautogui; pyautogui.hotkey(\'ctrl\', \'v\')"');
-              console.log('✓ Text pasted successfully');
+              const pasteTime = Date.now() - pasteStart;
+              const totalTime = Date.now() - pipelineStart;
+
+              console.log(`  ✓ Text pasted successfully (${pasteTime}ms)`);
+              console.log(`\n${'='.repeat(60)}`);
+              console.log(`✅ PIPELINE COMPLETE - Total time: ${totalTime}ms`);
+              console.log(`   Recording: N/A`);
+              console.log(`   Transcription: ${transcribeTime}ms`);
+              console.log(`   Clipboard: ${clipboardTime}ms`);
+              console.log(`   Paste: ${pasteTime}ms`);
+              console.log(`${'='.repeat(60)}\n`);
             } catch (error) {
-              console.error('❌ Error pasting text:', error);
-              console.log('ℹ️ Text is in clipboard - paste manually with Ctrl+V');
+              console.error(`  ❌ Error pasting text:`, error);
+              console.log(`  ℹ️ Text is in clipboard - paste manually with Ctrl+V`);
+              console.log(`\n${'='.repeat(60)}`);
+              console.log(`⚠️ PIPELINE COMPLETE (manual paste needed) - Total time: ${Date.now() - pipelineStart}ms`);
+              console.log(`${'='.repeat(60)}\n`);
             }
           }, 100);
         } catch (transcriptionError) {
