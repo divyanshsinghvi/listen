@@ -20,13 +20,19 @@ import nemo.collections.asr as nemo_asr
 class ParakeetServer:
     def __init__(self):
         self.models = {}
+        sys.stderr.write('[SERVER] Starting ParakeetServer\n')
+        sys.stderr.flush()
         print(json.dumps({'status': 'starting'}), flush=True)
 
     def load_model(self, model_name):
         """Load model if not already loaded (cached)"""
         if model_name not in self.models:
+            sys.stderr.write(f'[SERVER] Loading model: {model_name}\n')
+            sys.stderr.flush()
             print(json.dumps({'status': 'loading', 'model': model_name}), flush=True)
             self.models[model_name] = nemo_asr.models.ASRModel.from_pretrained(model_name)
+            sys.stderr.write(f'[SERVER] Model loaded: {model_name}\n')
+            sys.stderr.flush()
         return self.models[model_name]
 
     def transcribe(self, audio_path, model_name, language='en'):
@@ -55,6 +61,8 @@ class ParakeetServer:
 
     def run(self):
         """Main server loop - read requests from stdin, write responses to stdout"""
+        sys.stderr.write('[SERVER] Ready to accept requests\n')
+        sys.stderr.flush()
         print(json.dumps({'status': 'ready'}), flush=True)
 
         while True:
@@ -87,5 +95,10 @@ class ParakeetServer:
 
 
 if __name__ == '__main__':
-    server = ParakeetServer()
-    server.run()
+    try:
+        server = ParakeetServer()
+        server.run()
+    except KeyboardInterrupt:
+        print(json.dumps({'status': 'shutting_down'}), flush=True)
+    except Exception as e:
+        print(json.dumps({'error': str(e)}), flush=True)
