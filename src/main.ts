@@ -4,6 +4,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import { RecordingManager } from './recording';
 import { ModularTranscriptionService } from './transcription-router';
+import { DatasetManager } from './dataset';
 
 const execAsync = promisify(exec);
 
@@ -122,8 +123,31 @@ async function toggleRecording() {
           console.log(`\n📊 TRANSCRIPTION RESULTS:`);
           console.log(`  ✓ Text: "${result.text}"`);
           console.log(`  ✓ Model: ${result.modelUsed}`);
-          console.log(`  ✓ Confidence: ${(result.confidence * 100).toFixed(1)}%`);
+          console.log(`  ✓ Confidence: ${result.confidence ? (result.confidence * 100).toFixed(1) : 'N/A'}%`);
           console.log(`  ℹ️ Model inference: ${result.duration}ms`);
+
+          // Save to dataset for training
+          try {
+            const datasetManager = new DatasetManager();
+            const fs = require('fs');
+            const fileSize = fs.existsSync(audioFilePath) ? fs.statSync(audioFilePath).size : 0;
+
+            // Calculate recording duration from file size
+            // WAV format: 16kHz, mono, 16-bit = 32,000 bytes per second
+            // Subtract 44 bytes for WAV header
+            const recordingDuration = fileSize > 44 ? Math.round(((fileSize - 44) / 32000) * 1000) : 0;
+
+            await datasetManager.saveEntry(audioFilePath, {
+              transcription: result.text,
+              confidence: result.confidence ?? 0,
+              model: result.modelUsed,
+              language: 'en',
+              duration: recordingDuration,
+              fileSize: fileSize
+            });
+          } catch (datasetError) {
+            console.error('⚠️ Warning: Failed to save dataset entry:', datasetError);
+          }
 
           // Copy to clipboard
           const clipboardStart = Date.now();

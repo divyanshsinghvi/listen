@@ -51,7 +51,7 @@ export class ModularTranscriptionService {
       console.log(`✓ Stage 1.2: Model selected and used for transcription`);
       console.log(`  Model: ${result.modelUsed}`);
       console.log(`  Text length: ${result.text.length} characters`);
-      console.log(`  Confidence: ${(result.confidence * 100).toFixed(1)}%`);
+      console.log(`  Confidence: ${result.confidence ? (result.confidence * 100).toFixed(1) : 'N/A'}%`);
       console.log(`  Service duration: ${serviceTime}ms`);
 
       return result;

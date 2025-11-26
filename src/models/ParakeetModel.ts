@@ -62,12 +62,24 @@ export class ParakeetModel extends STTModel {
 
     const duration = Date.now() - startTime;
 
-    return {
-      text: stdout.trim(),
-      duration,
-      confidence: 0.95, // Parakeet has excellent accuracy
-      language: language,
-    };
+    // Parse JSON output containing text and confidence
+    try {
+      const result = JSON.parse(stdout.trim());
+      return {
+        text: result.text,
+        duration,
+        confidence: result.confidence ?? 0.95,
+        language: language,
+      };
+    } catch {
+      // Fallback if JSON parsing fails
+      return {
+        text: stdout.trim(),
+        duration,
+        confidence: 0.95,
+        language: language,
+      };
+    }
   }
 
   private createTranscriptionScript() {
@@ -77,6 +89,7 @@ Parakeet TDT Transcription Script
 Fastest STT model: 3,333x real-time!
 """
 import sys
+import json
 import nemo.collections.asr as nemo_asr
 
 def transcribe(audio_path, model_name, language='en'):
@@ -91,10 +104,16 @@ def transcribe(audio_path, model_name, language='en'):
     # Transcribe
     result = asr_model.transcribe([audio_path])[0]
 
-    # Extract text from Hypothesis object
+    # Extract text and confidence from Hypothesis object
     transcription = result.text if hasattr(result, 'text') else str(result)
+    confidence = result.confidence if hasattr(result, 'confidence') else 0.95
 
-    print(transcription)
+    # Output as JSON
+    output = {
+        'text': transcription,
+        'confidence': float(confidence)
+    }
+    print(json.dumps(output))
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
