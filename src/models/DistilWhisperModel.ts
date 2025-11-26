@@ -6,6 +6,7 @@
  */
 
 import * as path from 'path';
+import * as fs from 'fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { STTModel, TranscriptionOptions, TranscriptionResult, ModelInfo } from './ModelInterface';
@@ -41,6 +42,11 @@ export class DistilWhisperModel extends STTModel {
   ): Promise<TranscriptionResult> {
     const startTime = Date.now();
 
+    // Create Python script if it doesn't exist
+    if (!fs.existsSync(this.scriptPath)) {
+      this.createTranscriptionScript();
+    }
+
     const { stdout } = await execAsync(
       `python3 ${this.scriptPath} "${audioFilePath}" ${this.modelVariant}`
     );
@@ -53,6 +59,46 @@ export class DistilWhisperModel extends STTModel {
       confidence: 0.95, // Distil-Whisper has excellent accuracy
       language: 'en', // Currently English-only
     };
+  }
+
+  private createTranscriptionScript() {
+    const script = `#!/usr/bin/env python3
+"""
+Distil-Whisper Transcription Script
+6x faster than Whisper, 49% smaller
+"""
+import sys
+from transformers import pipeline
+import torch
+
+# Use CUDA if available
+device = 0 if torch.cuda.is_available() else -1
+
+model_sizes = {
+    'small': 'distil-whisper/distil-small.en',
+    'medium': 'distil-whisper/distil-medium.en',
+    'large-v3': 'distil-whisper/distil-large-v3'
+}
+
+audio_path = sys.argv[1]
+model_variant = sys.argv[2] if len(sys.argv) > 2 else 'small'
+
+model_id = model_sizes.get(model_variant, 'distil-whisper/distil-small.en')
+
+try:
+    pipe = pipeline('automatic-speech-recognition',
+                    model=model_id,
+                    device=device)
+
+    result = pipe(audio_path)
+    print(result['text'])
+except Exception as e:
+    print(f"Error: {e}", file=sys.stderr)
+    sys.exit(1)
+`;
+
+    fs.writeFileSync(this.scriptPath, script);
+    fs.chmodSync(this.scriptPath, '755');
   }
 
   getInfo(): ModelInfo {
