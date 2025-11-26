@@ -1,8 +1,11 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, screen } from 'electron';
 import * as path from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { RecordingManager } from './recording';
 import { ModularTranscriptionService } from './transcription-router';
-import * as robot from 'robotjs';
+
+const execAsync = promisify(exec);
 
 let mainWindow: BrowserWindow | null = null;
 let recordingManager: RecordingManager | null = null;
@@ -100,26 +103,25 @@ async function toggleRecording() {
 
           console.log(`✓ Transcription complete: "${result.text}" (${result.modelUsed})`);
 
-          // Also copy to clipboard as backup
+          // Copy to clipboard
           clipboard.writeText(result.text);
+          console.log('📋 Text copied to clipboard');
 
           // Hide window immediately
           mainWindow?.hide();
 
-          // Type the text at current cursor position
-          console.log(`📝 Typing transcribed text: "${result.text}"`);
+          // Auto-paste using Ctrl+V
+          console.log(`📝 Auto-pasting at cursor position...`);
 
           // Small delay to ensure window focus is released
-          setTimeout(() => {
+          setTimeout(async () => {
             try {
-              // Type the transcribed text character by character
-              robot.typeString(result.text);
-              console.log('✓ Text typed successfully');
+              // Use Python to simulate Ctrl+V paste
+              await execAsync('python -c "import pyautogui; pyautogui.hotkey(\'ctrl\', \'v\')"');
+              console.log('✓ Text pasted successfully');
             } catch (error) {
-              console.error('❌ Error typing text:', error);
-              // Fallback: user can paste from clipboard
-              clipboard.writeText(result.text);
-              console.log('ℹ️ Text copied to clipboard as fallback');
+              console.error('❌ Error pasting text:', error);
+              console.log('ℹ️ Text is in clipboard - paste manually with Ctrl+V');
             }
           }, 100);
         } catch (transcriptionError) {
