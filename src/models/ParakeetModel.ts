@@ -19,6 +19,7 @@ export class ParakeetModel extends STTModel {
   private modelVariant: 'v2' | 'v3';
   private static serverProcess: ChildProcess | null = null;
   private static initPromise: Promise<void> | null = null;
+  private static lineBuffer: string = ''; // Buffer for incomplete lines from stdout
 
   constructor(modelVariant: 'v2' | 'v3' = 'v3') {
     super('parakeet', undefined);
@@ -135,21 +136,33 @@ export class ParakeetModel extends STTModel {
 
       // Set up listener for response (one-time)
       const onData = (data: Buffer) => {
-        const lines = data.toString().split('\n');
-        console.log('[DEBUG] Received data from server:', lines.length, 'lines');
-        for (const line of lines) {
+        // Add incoming data to buffer
+        ParakeetModel.lineBuffer += data.toString();
+        console.log('[DEBUG] Received', data.length, 'bytes. Buffer size:', ParakeetModel.lineBuffer.length);
+
+        // Process complete lines only
+        const lines = ParakeetModel.lineBuffer.split('\n');
+
+        // Keep the last incomplete line in buffer (if it doesn't end with \n)
+        ParakeetModel.lineBuffer = lines[lines.length - 1];
+
+        // Process all complete lines (all but the last one)
+        for (let i = 0; i < lines.length - 1; i++) {
+          const line = lines[i];
           if (line.trim()) {
-            console.log('[DEBUG] Processing line:', line.substring(0, 100));
+            console.log('[DEBUG] Processing complete line, length:', line.length);
             try {
               const response = JSON.parse(line);
-              console.log('[DEBUG] Parsed response:', response);
+              console.log('[DEBUG] Parsed response, text length:', response.text?.length || 0);
               if (response.error) {
                 ParakeetModel.serverProcess?.stdout?.removeListener('data', onData);
+                ParakeetModel.lineBuffer = '';
                 reject(new Error(response.error));
               } else if (response.text !== undefined) {
                 ParakeetModel.serverProcess?.stdout?.removeListener('data', onData);
+                ParakeetModel.lineBuffer = '';
                 const duration = Date.now() - startTime;
-                console.log('[DEBUG] Transcription successful:', response.text);
+                console.log('[DEBUG] Transcription successful, text:', response.text.substring(0, 100) + (response.text.length > 100 ? '...' : ''));
                 resolve({
                   text: response.text,
                   duration,
