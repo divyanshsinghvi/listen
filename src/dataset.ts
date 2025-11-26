@@ -52,14 +52,14 @@ export class DatasetManager {
       // Copy WAV file
       if (fs.existsSync(audioPath)) {
         fs.copyFileSync(audioPath, wavPath);
-        console.log(`✓ Audio saved: ${wavFile}`);
+        console.log(`[OK] Audio saved: ${wavFile}`);
       } else {
         throw new Error(`Audio file not found: ${audioPath}`);
       }
 
       // Save transcription as text
       fs.writeFileSync(txtPath, data.transcription, 'utf-8');
-      console.log(`✓ Transcription saved: ${txtFile}`);
+      console.log(`[OK] Transcription saved: ${txtFile}`);
 
       // Save metadata as JSON
       const entry: DatasetEntry = {
@@ -69,7 +69,7 @@ export class DatasetManager {
       };
 
       fs.writeFileSync(jsonPath, JSON.stringify(entry, null, 2), 'utf-8');
-      console.log(`✓ Metadata saved: ${jsonFile}`);
+      console.log(`[OK] Metadata saved: ${jsonFile}`);
 
       console.log(`\n📊 Dataset Entry Added:`);
       console.log(`  Text: "${data.transcription}"`);
@@ -156,7 +156,7 @@ export class DatasetManager {
       const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
       fs.writeFileSync(csvPath, csv, 'utf-8');
 
-      console.log(`✓ Dataset exported to: ${csvPath}`);
+      console.log(`[OK] Dataset exported to: ${csvPath}`);
       console.log(`  Entries: ${entries.length}`);
       console.log(`  Size: ${(csv.length / 1024).toFixed(2)} KB`);
 

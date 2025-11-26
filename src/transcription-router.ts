@@ -48,7 +48,7 @@ export class ModularTranscriptionService {
       );
 
       const serviceTime = Date.now() - startTime;
-      console.log(`✓ Stage 1.2: Model selected and used for transcription`);
+      console.log(`[OK] Stage 1.2: Model selected and used for transcription`);
       console.log(`  Model: ${result.modelUsed}`);
       console.log(`  Text length: ${result.text.length} characters`);
       console.log(`  Confidence: ${result.confidence ? (result.confidence * 100).toFixed(1) : 'N/A'}%`);

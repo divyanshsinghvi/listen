@@ -63,7 +63,7 @@ async function toggleRecording() {
 
     try {
       await recordingManager.startRecording();
-      console.log('✓ Audio stream initialized');
+      console.log('[OK] Audio stream initialized');
     } catch (error) {
       console.error('❌ Recording start error:', error);
       isRecording = false;
@@ -83,7 +83,7 @@ async function toggleRecording() {
         const recordStop = Date.now();
         const audioFilePath = await recordingManager.stopRecording();
         const recordTime = Date.now() - recordStop;
-        console.log(`✓ Recording finalized (${recordTime}ms)`);
+        console.log(`[OK] Recording finalized (${recordTime}ms)`);
 
         // Check if file exists and has size
         const fs = require('fs');
@@ -121,9 +121,9 @@ async function toggleRecording() {
           console.log(`\n⏱️  [Stage: Transcription Complete] +${Date.now() - pipelineStart}ms (took ${transcribeTime}ms)`);
 
           console.log(`\n📊 TRANSCRIPTION RESULTS:`);
-          console.log(`  ✓ Text: "${result.text}"`);
-          console.log(`  ✓ Model: ${result.modelUsed}`);
-          console.log(`  ✓ Confidence: ${result.confidence ? (result.confidence * 100).toFixed(1) : 'N/A'}%`);
+          console.log(`  [OK] Text: "${result.text}"`);
+          console.log(`  [OK] Model: ${result.modelUsed}`);
+          console.log(`  [OK] Confidence: ${result.confidence ? (result.confidence * 100).toFixed(1) : 'N/A'}%`);
           console.log(`  ℹ️ Model inference: ${result.duration}ms`);
 
           // Save to dataset for training
@@ -172,7 +172,7 @@ async function toggleRecording() {
               const pasteTime = Date.now() - pasteStart;
               const totalTime = Date.now() - pipelineStart;
 
-              console.log(`  ✓ Text pasted successfully (${pasteTime}ms)`);
+              console.log(`  [OK] Text pasted successfully (${pasteTime}ms)`);
               console.log(`\n${'='.repeat(60)}`);
               console.log(`✅ PIPELINE COMPLETE - Total time: ${totalTime}ms`);
               console.log(`   Recording: N/A`);
@@ -245,7 +245,7 @@ app.whenReady().then(async () => {
 
   try {
     await transcriptionService.initialize();
-    console.log('✓ Model loaded successfully - ready for transcription!');
+    console.log('[OK] Model loaded successfully - ready for transcription!');
   } catch (error) {
     console.error('❌ Failed to load model:', error);
   }
