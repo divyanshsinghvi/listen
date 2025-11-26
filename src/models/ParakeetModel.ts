@@ -56,29 +56,41 @@ export class ParakeetModel extends STTModel {
       ? 'nvidia/parakeet-tdt-0.6b-v3'  // 25 languages
       : 'nvidia/parakeet-tdt-0.6b-v2'; // English only
 
-    const { stdout } = await execAsync(
-      `python3 ${this.scriptPath} "${audioFilePath}" ${modelName} ${language}`
+    // Use a temp file for output instead of stdout (NeMo logs to stdout)
+    const outputFile = path.join(path.dirname(audioFilePath), `parakeet_out_${Date.now()}.json`);
+
+    await execAsync(
+      `python3 ${this.scriptPath} "${audioFilePath}" ${modelName} ${language} "${outputFile}"`
     );
 
     const duration = Date.now() - startTime;
 
-    // Parse JSON output containing text and confidence
+    // Read result from file
     try {
-      const result = JSON.parse(stdout.trim());
+      const resultJson = fs.readFileSync(outputFile, 'utf-8');
+      const result = JSON.parse(resultJson);
+
+      // Clean up temp file
+      try {
+        fs.unlinkSync(outputFile);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+
       return {
         text: result.text,
         duration,
         confidence: result.confidence ?? 0.95,
         language: language,
       };
-    } catch {
-      // Fallback if JSON parsing fails
-      return {
-        text: stdout.trim(),
-        duration,
-        confidence: 0.95,
-        language: language,
-      };
+    } catch (error) {
+      // Clean up temp file
+      try {
+        fs.unlinkSync(outputFile);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+      throw error;
     }
   }
 
@@ -90,9 +102,18 @@ Fastest STT model: 3,333x real-time!
 """
 import sys
 import json
+import os
+import logging
+
+# Suppress NeMo and other library logging
+os.environ['HYDRA_FULL_ERROR'] = '0'
+logging.getLogger('nemo_logger').setLevel(logging.CRITICAL)
+logging.getLogger('pytorch_lightning').setLevel(logging.CRITICAL)
+logging.basicConfig(level=logging.CRITICAL)
+
 import nemo.collections.asr as nemo_asr
 
-def transcribe(audio_path, model_name, language='en'):
+def transcribe(audio_path, model_name, language='en', output_file=None):
     # Load model from Hugging Face
     asr_model = nemo_asr.models.ASRModel.from_pretrained(model_name)
 
@@ -108,12 +129,18 @@ def transcribe(audio_path, model_name, language='en'):
     transcription = result.text if hasattr(result, 'text') else str(result)
     confidence = result.confidence if hasattr(result, 'confidence') else 0.95
 
-    # Output as JSON
+    # Prepare output
     output = {
         'text': transcription,
         'confidence': float(confidence)
     }
-    print(json.dumps(output))
+
+    # Write to file (clean output) or stdout
+    if output_file:
+        with open(output_file, 'w') as f:
+            json.dump(output, f)
+    else:
+        print(json.dumps(output), file=sys.stdout, flush=True)
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
@@ -123,8 +150,9 @@ if __name__ == '__main__':
     audio_path = sys.argv[1]
     model_name = sys.argv[2]
     language = sys.argv[3] if len(sys.argv) > 3 else 'en'
+    output_file = sys.argv[4] if len(sys.argv) > 4 else None
 
-    transcribe(audio_path, model_name, language)
+    transcribe(audio_path, model_name, language, output_file)
 `;
 
     fs.writeFileSync(this.scriptPath, script);
