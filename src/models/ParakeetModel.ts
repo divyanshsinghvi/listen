@@ -131,19 +131,25 @@ export class ParakeetModel extends STTModel {
         language: language
       };
 
+      console.log('[DEBUG] Sending transcription request:', request);
+
       // Set up listener for response (one-time)
       const onData = (data: Buffer) => {
         const lines = data.toString().split('\n');
+        console.log('[DEBUG] Received data from server:', lines.length, 'lines');
         for (const line of lines) {
           if (line.trim()) {
+            console.log('[DEBUG] Processing line:', line.substring(0, 100));
             try {
               const response = JSON.parse(line);
+              console.log('[DEBUG] Parsed response:', response);
               if (response.error) {
                 ParakeetModel.serverProcess?.stdout?.removeListener('data', onData);
                 reject(new Error(response.error));
               } else if (response.text !== undefined) {
                 ParakeetModel.serverProcess?.stdout?.removeListener('data', onData);
                 const duration = Date.now() - startTime;
+                console.log('[DEBUG] Transcription successful:', response.text);
                 resolve({
                   text: response.text,
                   duration,
@@ -152,6 +158,7 @@ export class ParakeetModel extends STTModel {
                 });
               }
             } catch (e) {
+              console.log('[DEBUG] JSON parse error (might be logging):', (e as Error).message);
               // Ignore parsing errors, might be logging output
             }
           }
@@ -161,6 +168,7 @@ export class ParakeetModel extends STTModel {
       ParakeetModel.serverProcess!.stdout?.on('data', onData);
 
       // Send request to server
+      console.log('[DEBUG] Writing to server stdin');
       ParakeetModel.serverProcess!.stdin?.write(JSON.stringify(request) + '\n');
     });
   }
