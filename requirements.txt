@@ -1,0 +1,28 @@
+# Listen - Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# Core Audio Processing
+PyAudioWPatch>=0.2.12  # Windows audio recording with WASAPI support
+pyaudio>=0.2.13       # Cross-platform audio I/O (fallback for non-Windows)
+sounddevice>=0.4.6    # Audio recording alternative
+soundfile>=0.12.1     # WAV file writing
+
+# Speech-to-Text Models
+nemo-toolkit[asr]>=2.0.0  # NVIDIA NeMo ASR (includes Parakeet)
+torch>=2.9.0               # PyTorch (auto-installs with CUDA support)
+torchaudio>=2.9.0          # PyTorch audio utilities
+transformers>=4.30.0       # HuggingFace transformers (for Distil-Whisper, Canary)
+
+# Keyboard & Input Simulation
+pyautogui>=0.9.54     # Cross-platform keyboard/mouse simulation
+
+# Data Processing
+numpy>=1.24.0         # Numerical computing
+scipy>=1.10.0         # Scientific computing
+
+# Utilities
+python-dotenv>=1.0.0  # Environment variable management
+
+# Optional: Additional STT Models
+# faster-whisper>=0.10.0  # Fast Whisper implementation
+# moonshine>=0.1.0         # Lightweight STT model
