@@ -22,7 +22,10 @@ class ParakeetServer:
         self.models = {}
         sys.stderr.write('[SERVER] Starting ParakeetServer\n')
         sys.stderr.flush()
-        print(json.dumps({'status': 'starting'}), flush=True)
+        # Ensure stdout is unbuffered
+        sys.stdout = open(sys.stdout.fileno(), mode='w', buffering=1, encoding='utf8')
+        sys.stdout.write(json.dumps({'status': 'starting'}) + '\n')
+        sys.stdout.flush()
 
     def load_model(self, model_name):
         """Load model if not already loaded (cached)"""
@@ -63,7 +66,8 @@ class ParakeetServer:
         """Main server loop - read requests from stdin, write responses to stdout"""
         sys.stderr.write('[SERVER] Ready to accept requests\n')
         sys.stderr.flush()
-        print(json.dumps({'status': 'ready'}), flush=True)
+        sys.stdout.write(json.dumps({'status': 'ready'}) + '\n')
+        sys.stdout.flush()
 
         while True:
             try:
@@ -86,12 +90,15 @@ class ParakeetServer:
                     response = {'text': result['text'], 'confidence': result['confidence']}
 
                 # Send response
-                print(json.dumps(response), flush=True)
+                sys.stdout.write(json.dumps(response) + '\n')
+                sys.stdout.flush()
 
             except json.JSONDecodeError as e:
-                print(json.dumps({'error': f'Invalid JSON: {str(e)}'}), flush=True)
+                sys.stdout.write(json.dumps({'error': f'Invalid JSON: {str(e)}'}) + '\n')
+                sys.stdout.flush()
             except Exception as e:
-                print(json.dumps({'error': str(e)}), flush=True)
+                sys.stdout.write(json.dumps({'error': str(e)}) + '\n')
+                sys.stdout.flush()
 
 
 if __name__ == '__main__':
