@@ -8,45 +8,10 @@ import { DatasetManager } from './dataset';
 
 const execAsync = promisify(exec);
 
-/**
- * Capture the currently focused window so we can restore focus later
- */
-async function captureWindowFocus(): Promise<any> {
-  try {
-    const { stdout } = await execAsync('python3 ' + path.join(__dirname, '..', 'window_focus.py') + ' get');
-    const windowInfo = JSON.parse(stdout.trim());
-    console.log(`[OK] Captured focus: ${windowInfo.title || 'Unknown'}`);
-    return windowInfo;
-  } catch (error) {
-    console.log(`[WARN] Could not capture window focus: ${error}`);
-    return null;
-  }
-}
-
-/**
- * Restore focus to the previously captured window
- */
-async function restoreWindowFocus(windowInfo: any): Promise<boolean> {
-  if (!windowInfo) return false;
-
-  try {
-    const { stdout } = await execAsync(`python3 ${path.join(__dirname, '..', 'window_focus.py')} restore '${JSON.stringify(windowInfo).replace(/'/g, "'\\''")}'`);
-    const result = JSON.parse(stdout.trim());
-    if (result.success) {
-      console.log(`[OK] Restored focus to: ${windowInfo.title || 'previous window'}`);
-    }
-    return result.success;
-  } catch (error) {
-    console.log(`[WARN] Could not restore window focus: ${error}`);
-    return false;
-  }
-}
-
 let mainWindow: BrowserWindow | null = null;
 let recordingManager: RecordingManager | null = null;
 let transcriptionService: ModularTranscriptionService | null = null;
 let isRecording = false;
-let previousWindowFocus: any = null;
 
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
@@ -80,9 +45,7 @@ async function toggleRecording() {
   if (!mainWindow) return;
 
   if (!isRecording) {
-    // Start recording - capture current window focus first
-    previousWindowFocus = await captureWindowFocus();
-
+    // Start recording
     isRecording = true;
     const recordingStartTime = Date.now();
     console.log('\n' + '='.repeat(60));
@@ -198,30 +161,21 @@ async function toggleRecording() {
 
           // Auto-paste using Ctrl+V
           console.log(`\n⏱️  [Stage: Auto-Paste] +${Date.now() - pipelineStart}ms`);
-          console.log(`  📝 Attempting to paste at cursor position...`);
+          console.log(`  📝 Text copied to clipboard`);
+          console.log(`  💡 Press Ctrl+V in your target window to paste`);
+          console.log(`  ℹ️ Waiting 2 seconds for you to switch windows...`);
 
-          // Small delay to ensure window focus is released, then restore focus and paste
+          // Wait 2 seconds to give user time to click on their target window
           setTimeout(async () => {
             const pasteStart = Date.now();
             try {
-              // Restore focus to the original window
-              const focusRestored = await restoreWindowFocus(previousWindowFocus);
-              if (focusRestored) {
-                console.log(`  [OK] Focus restored`);
-              } else {
-                console.log(`  [WARN] Could not restore focus, pasting anyway`);
-              }
-
-              // Add a small delay after focus restore to ensure window is ready
-              await new Promise(resolve => setTimeout(resolve, 150));
-
               // Use Python to simulate Ctrl+V paste
               await execAsync('python3 -c "import pyautogui; pyautogui.hotkey(\'ctrl\', \'v\')"');
               const pasteTime = Date.now() - pasteStart;
               const totalTime = Date.now() - pipelineStart;
 
-              console.log(`  [OK] Text pasted successfully (${pasteTime}ms)`);
-              console.log(`\n${'='.repeat(60)}`);
+              console.log(`\n  [OK] Text pasted successfully (${pasteTime}ms)`);
+              console.log(`${'='.repeat(60)}`);
               console.log(`✅ PIPELINE COMPLETE - Total time: ${totalTime}ms`);
               console.log(`   Recording: N/A`);
               console.log(`   Transcription: ${transcribeTime}ms`);
@@ -235,7 +189,7 @@ async function toggleRecording() {
               console.log(`⚠️ PIPELINE COMPLETE (manual paste needed) - Total time: ${Date.now() - pipelineStart}ms`);
               console.log(`${'='.repeat(60)}\n`);
             }
-          }, 100);
+          }, 2000);
         } catch (transcriptionError) {
           console.error('❌ Transcription error:', transcriptionError);
           mainWindow.webContents.send('recording-state', {
