@@ -60,6 +60,9 @@ export class ModelRouter {
         this.availableModels.set(info.name, model);
         console.log(`[OK] ${info.name} is available`);
 
+        // Initialize the model (loads resources, starts servers, etc)
+        await model.initialize();
+
         // Stop checking - use first available model
         break;
       }
