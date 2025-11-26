@@ -59,31 +59,33 @@ export class ParakeetModel extends STTModel {
     // Use a temp file for output instead of stdout (NeMo logs to stdout)
     const outputFile = path.join(path.dirname(audioFilePath), `parakeet_out_${Date.now()}.json`);
 
-    try {
-      const { stdout, stderr } = await execAsync(
-        `python3 ${this.scriptPath} "${audioFilePath}" ${modelName} ${language} "${outputFile}"`,
-        { maxBuffer: 10 * 1024 * 1024 } // 10MB buffer for large outputs
-      );
+    const { stdout, stderr } = await execAsync(
+      `python3 ${this.scriptPath} "${audioFilePath}" ${modelName} ${language} "${outputFile}"`,
+      { maxBuffer: 10 * 1024 * 1024 } // 10MB buffer for large outputs
+    );
 
-      // If output was written to stdout instead of file (fallback)
-      if (!fs.existsSync(outputFile) && stdout.trim()) {
-        try {
-          const result = JSON.parse(stdout.trim());
-          const duration = Date.now() - startTime;
-          return {
-            text: result.text,
-            duration,
-            confidence: result.confidence ?? 0.95,
-            language: language,
-          };
-        } catch {
-          // Continue to file reading attempt
-        }
-      }
-    } catch (execError: any) {
-      // Log the error for debugging but continue to file check
-      if (execError.stderr) {
-        console.error('Python script error:', execError.stderr);
+    // Log for debugging
+    if (stdout.trim()) {
+      console.log('[DEBUG] Python stdout:', stdout.substring(0, 200));
+    }
+    if (stderr.trim()) {
+      console.log('[DEBUG] Python stderr:', stderr.substring(0, 200));
+    }
+
+    // If output was written to stdout instead of file (fallback)
+    if (!fs.existsSync(outputFile) && stdout.trim()) {
+      try {
+        const result = JSON.parse(stdout.trim());
+        const duration = Date.now() - startTime;
+        return {
+          text: result.text,
+          duration,
+          confidence: result.confidence ?? 0.95,
+          language: language,
+        };
+      } catch (parseError) {
+        console.error('[ERROR] Failed to parse stdout as JSON:', parseError);
+        // Continue to file reading attempt
       }
     }
 
