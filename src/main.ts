@@ -89,7 +89,7 @@ async function toggleRecording() {
         try {
           console.log('🔄 Starting transcription...');
           // Auto-select best model for desktop
-          const transcription = await transcriptionService.transcribe(audioFilePath, {
+          const result = await transcriptionService.transcribe(audioFilePath, {
             routingPreferences: {
               priority: 'balance',
               platform: 'desktop',
@@ -97,14 +97,14 @@ async function toggleRecording() {
             }
           });
 
-          console.log(`✓ Transcription complete: "${transcription}"`);
+          console.log(`✓ Transcription complete: "${result.text}" (${result.modelUsed})`);
 
           // Copy to clipboard
-          clipboard.writeText(transcription);
+          clipboard.writeText(result.text);
 
           mainWindow.webContents.send('recording-state', {
             state: 'completed',
-            text: transcription
+            text: result.text
           });
 
           // Hide window after a short delay

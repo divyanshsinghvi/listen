@@ -31,7 +31,7 @@ export class ModularTranscriptionService {
       transcriptionOptions?: TranscriptionOptions;
       routingPreferences?: RoutingPreferences;
     }
-  ): Promise<string> {
+  ): Promise<TranscriptionResult & { modelUsed: string }> {
     if (!this.initialized) {
       await this.initialize();
     }
@@ -45,7 +45,7 @@ export class ModularTranscriptionService {
 
       console.log(`Transcribed with ${result.modelUsed} in ${result.duration}ms`);
 
-      return result.text;
+      return result;
     } catch (error) {
       console.error('Transcription error:', error);
       throw error;
