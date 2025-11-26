@@ -33,12 +33,12 @@ export class ModularTranscriptionService {
     }
   ): Promise<TranscriptionResult & { modelUsed: string }> {
     if (!this.initialized) {
-      console.log('📌 Service not initialized, initializing now...');
+      console.log('[INIT] Service not initialized, initializing now...');
       await this.initialize();
     }
 
     try {
-      console.log('🎯 Stage 1.1: Selecting best model...');
+      console.log('[STAGE] Stage 1.1: Selecting best model...');
       const startTime = Date.now();
 
       const result = await this.router.transcribe(
@@ -56,7 +56,7 @@ export class ModularTranscriptionService {
 
       return result;
     } catch (error) {
-      console.error('❌ Transcription error:', error);
+      console.error('[ERROR] Transcription error:', error);
       throw error;
     }
   }

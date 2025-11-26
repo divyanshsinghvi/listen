@@ -49,8 +49,8 @@ async function toggleRecording() {
     isRecording = true;
     const recordingStartTime = Date.now();
     console.log('\n' + '='.repeat(60));
-    console.log('🎙️ RECORDING STARTED');
-    console.log(`⏱️  [${new Date().toLocaleTimeString()}]`);
+    console.log('[MIC] RECORDING STARTED');
+    console.log(`[TIME] [${new Date().toLocaleTimeString()}]`);
     console.log('='.repeat(60));
 
     mainWindow.show();
@@ -65,7 +65,7 @@ async function toggleRecording() {
       await recordingManager.startRecording();
       console.log('[OK] Audio stream initialized');
     } catch (error) {
-      console.error('❌ Recording start error:', error);
+      console.error('[ERROR] Recording start error:', error);
       isRecording = false;
     }
   } else {
@@ -73,7 +73,7 @@ async function toggleRecording() {
     isRecording = false;
     const pipelineStart = Date.now();
     console.log('\n' + '='.repeat(60));
-    console.log('⏹️ RECORDING STOPPED');
+    console.log('[STOP] RECORDING STOPPED');
     console.log('='.repeat(60));
 
     mainWindow.webContents.send('recording-state', { state: 'processing' });
@@ -96,16 +96,16 @@ async function toggleRecording() {
           throw new Error(`Audio file not found: ${audioFilePath}`);
         }
 
-        console.log(`\n⏱️  [Stage: File Ready] +${Date.now() - pipelineStart}ms`);
+        console.log(`\n[TIME] [Stage: File Ready] +${Date.now() - pipelineStart}ms`);
 
         // Transcription service already initialized on app startup
         if (!transcriptionService) {
-          console.error('❌ Transcription service not available');
+          console.error('[ERROR] Transcription service not available');
           throw new Error('Transcription service failed to initialize');
         }
 
         try {
-          console.log(`\n⏱️  [Stage: Starting Transcription] +${Date.now() - pipelineStart}ms`);
+          console.log(`\n[TIME] [Stage: Starting Transcription] +${Date.now() - pipelineStart}ms`);
 
           const transcribeStart = Date.now();
           // Auto-select best model for desktop
@@ -118,13 +118,13 @@ async function toggleRecording() {
           });
 
           const transcribeTime = Date.now() - transcribeStart;
-          console.log(`\n⏱️  [Stage: Transcription Complete] +${Date.now() - pipelineStart}ms (took ${transcribeTime}ms)`);
+          console.log(`\n[TIME] [Stage: Transcription Complete] +${Date.now() - pipelineStart}ms (took ${transcribeTime}ms)`);
 
-          console.log(`\n📊 TRANSCRIPTION RESULTS:`);
+          console.log(`\n[RESULTS] TRANSCRIPTION RESULTS:`);
           console.log(`  [OK] Text: "${result.text}"`);
           console.log(`  [OK] Model: ${result.modelUsed}`);
           console.log(`  [OK] Confidence: ${result.confidence ? (result.confidence * 100).toFixed(1) : 'N/A'}%`);
-          console.log(`  ℹ️ Model inference: ${result.duration}ms`);
+          console.log(`  [INFO] Model inference: ${result.duration}ms`);
 
           // Save to dataset for training
           try {
@@ -146,24 +146,24 @@ async function toggleRecording() {
               fileSize: fileSize
             });
           } catch (datasetError) {
-            console.error('⚠️ Warning: Failed to save dataset entry:', datasetError);
+            console.error('[WARN] Failed to save dataset entry:', datasetError);
           }
 
           // Copy to clipboard
           const clipboardStart = Date.now();
           clipboard.writeText(result.text);
           const clipboardTime = Date.now() - clipboardStart;
-          console.log(`\n⏱️  [Stage: Clipboard] +${Date.now() - pipelineStart}ms (took ${clipboardTime}ms)`);
-          console.log(`  📋 Text copied to clipboard`);
+          console.log(`\n[TIME] [Stage: Clipboard] +${Date.now() - pipelineStart}ms (took ${clipboardTime}ms)`);
+          console.log(`  [OK] Text copied to clipboard`);
 
           // Hide window immediately
           mainWindow?.hide();
 
           // Auto-paste using Ctrl+V
-          console.log(`\n⏱️  [Stage: Auto-Paste] +${Date.now() - pipelineStart}ms`);
-          console.log(`  📝 Text copied to clipboard`);
-          console.log(`  💡 Press Ctrl+V in your target window to paste`);
-          console.log(`  ℹ️ Waiting 2 seconds for you to switch windows...`);
+          console.log(`\n[TIME] [Stage: Auto-Paste] +${Date.now() - pipelineStart}ms`);
+          console.log(`  [NOTE] Text copied to clipboard`);
+          console.log(`  [TIP] Press Ctrl+V in your target window to paste`);
+          console.log(`  [INFO] Waiting 2 seconds for you to switch windows...`);
 
           // Wait 2 seconds to give user time to click on their target window
           setTimeout(async () => {
@@ -176,22 +176,22 @@ async function toggleRecording() {
 
               console.log(`\n  [OK] Text pasted successfully (${pasteTime}ms)`);
               console.log(`${'='.repeat(60)}`);
-              console.log(`✅ PIPELINE COMPLETE - Total time: ${totalTime}ms`);
+              console.log(`[DONE] PIPELINE COMPLETE - Total time: ${totalTime}ms`);
               console.log(`   Recording: N/A`);
               console.log(`   Transcription: ${transcribeTime}ms`);
               console.log(`   Clipboard: ${clipboardTime}ms`);
               console.log(`   Paste: ${pasteTime}ms`);
               console.log(`${'='.repeat(60)}\n`);
             } catch (error) {
-              console.error(`  ❌ Error pasting text:`, error);
-              console.log(`  ℹ️ Text is in clipboard - paste manually with Ctrl+V`);
+              console.error(`  [ERROR] Error pasting text:`, error);
+              console.log(`  [INFO] Text is in clipboard - paste manually with Ctrl+V`);
               console.log(`\n${'='.repeat(60)}`);
-              console.log(`⚠️ PIPELINE COMPLETE (manual paste needed) - Total time: ${Date.now() - pipelineStart}ms`);
+              console.log(`[WARN] PIPELINE COMPLETE (manual paste needed) - Total time: ${Date.now() - pipelineStart}ms`);
               console.log(`${'='.repeat(60)}\n`);
             }
           }, 2000);
         } catch (transcriptionError) {
-          console.error('❌ Transcription error:', transcriptionError);
+          console.error('[ERROR] Transcription error:', transcriptionError);
           mainWindow.webContents.send('recording-state', {
             state: 'error',
             error: transcriptionError instanceof Error ? transcriptionError.message : 'Transcription failed'
@@ -201,7 +201,7 @@ async function toggleRecording() {
           }, 2000);
         }
       } catch (recordingError) {
-        console.error('❌ Recording stop error:', recordingError);
+        console.error('[ERROR] Recording stop error:', recordingError);
         mainWindow.webContents.send('recording-state', {
           state: 'error',
           error: recordingError instanceof Error ? recordingError.message : 'Recording failed'
@@ -242,14 +242,14 @@ app.whenReady().then(async () => {
   registerShortcuts();
 
   // Load transcription service and model on startup
-  console.log('🚀 Initializing transcription service...');
+  console.log('[INIT] Initializing transcription service...');
   transcriptionService = new ModularTranscriptionService();
 
   try {
     await transcriptionService.initialize();
     console.log('[OK] Model loaded successfully - ready for transcription!');
   } catch (error) {
-    console.error('❌ Failed to load model:', error);
+    console.error('[ERROR] Failed to load model:', error);
   }
 
   // Signal UI that app is ready

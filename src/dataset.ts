@@ -28,7 +28,7 @@ export class DatasetManager {
 
     if (!fs.existsSync(this.datasetDir)) {
       fs.mkdirSync(this.datasetDir, { recursive: true });
-      console.log(`📁 Dataset directory created: ${this.datasetDir}`);
+      console.log(`[DIR] Dataset directory created: ${this.datasetDir}`);
     }
   }
 
@@ -71,7 +71,7 @@ export class DatasetManager {
       fs.writeFileSync(jsonPath, JSON.stringify(entry, null, 2), 'utf-8');
       console.log(`[OK] Metadata saved: ${jsonFile}`);
 
-      console.log(`\n📊 Dataset Entry Added:`);
+      console.log(`\n[ENTRY] Dataset Entry Added:`);
       console.log(`  Text: "${data.transcription}"`);
       console.log(`  Model: ${data.model}`);
       console.log(`  Confidence: ${(data.confidence * 100).toFixed(1)}%`);
@@ -80,7 +80,7 @@ export class DatasetManager {
 
       return entry;
     } catch (error) {
-      console.error('❌ Error saving dataset entry:', error);
+      console.error('[ERROR] Error saving dataset entry:', error);
       throw error;
     }
   }
@@ -106,7 +106,7 @@ export class DatasetManager {
         files: files.length
       };
     } catch (error) {
-      console.error('❌ Error getting stats:', error);
+      console.error('[ERROR] Error getting stats:', error);
       return null;
     }
   }
@@ -129,7 +129,7 @@ export class DatasetManager {
 
       return entries.sort((a, b) => b.timestamp - a.timestamp);
     } catch (error) {
-      console.error('❌ Error listing entries:', error);
+      console.error('[ERROR] Error listing entries:', error);
       return [];
     }
   }
@@ -162,7 +162,7 @@ export class DatasetManager {
 
       return csvPath;
     } catch (error) {
-      console.error('❌ Error exporting CSV:', error);
+      console.error('[ERROR] Error exporting CSV:', error);
       throw error;
     }
   }
