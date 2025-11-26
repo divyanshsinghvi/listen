@@ -6,28 +6,93 @@
  *
  * Leaderboard: #1 in speed, competitive accuracy (6.32% WER)
  * Supports: 25 European languages
+ *
+ * Uses a persistent server process to avoid reloading the model on each transcription
  */
 
 import * as path from 'path';
 import * as fs from 'fs';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { spawn, ChildProcess } from 'child_process';
 import { STTModel, TranscriptionOptions, TranscriptionResult, ModelInfo } from './ModelInterface';
 
-const execAsync = promisify(exec);
-
 export class ParakeetModel extends STTModel {
-  private scriptPath: string;
   private modelVariant: 'v2' | 'v3';
+  private static serverProcess: ChildProcess | null = null;
+  private static initPromise: Promise<void> | null = null;
 
   constructor(modelVariant: 'v2' | 'v3' = 'v3') {
     super('parakeet', undefined);
     this.modelVariant = modelVariant;
-    this.scriptPath = path.join(__dirname, 'parakeet_transcribe.py');
+  }
+
+  /**
+   * Start the persistent server process
+   */
+  private static async startServer(): Promise<void> {
+    if (ParakeetModel.serverProcess) {
+      return; // Already running
+    }
+
+    if (ParakeetModel.initPromise) {
+      return ParakeetModel.initPromise; // Wait for in-progress init
+    }
+
+    ParakeetModel.initPromise = new Promise((resolve, reject) => {
+      try {
+        const serverScript = path.join(__dirname, '..', '..', 'parakeet_server.py');
+        ParakeetModel.serverProcess = spawn('python3', [serverScript]);
+
+        let initialized = false;
+
+        ParakeetModel.serverProcess.stdout?.on('data', (data) => {
+          const message = data.toString().trim();
+          if (message && !initialized) {
+            try {
+              const json = JSON.parse(message);
+              if (json.status === 'ready') {
+                initialized = true;
+                console.log('[OK] Parakeet server started');
+                resolve();
+              }
+            } catch (e) {
+              // Ignore non-JSON output
+            }
+          }
+        });
+
+        ParakeetModel.serverProcess.stderr?.on('data', (data) => {
+          console.error('Parakeet server error:', data.toString());
+        });
+
+        ParakeetModel.serverProcess.on('error', (error) => {
+          ParakeetModel.serverProcess = null;
+          ParakeetModel.initPromise = null;
+          reject(error);
+        });
+
+        ParakeetModel.serverProcess.on('exit', () => {
+          ParakeetModel.serverProcess = null;
+        });
+
+        // Timeout if server doesn't start
+        setTimeout(() => {
+          if (!initialized) {
+            reject(new Error('Parakeet server startup timeout'));
+          }
+        }, 30000);
+      } catch (error) {
+        reject(error);
+      }
+    });
+
+    return ParakeetModel.initPromise;
   }
 
   async isAvailable(): Promise<boolean> {
     try {
+      const { exec } = require('child_process');
+      const { promisify } = require('util');
+      const execAsync = promisify(exec);
       await execAsync('python3 -c "import nemo.collections.asr"');
       return true;
     } catch {
@@ -36,8 +101,8 @@ export class ParakeetModel extends STTModel {
   }
 
   async initialize(): Promise<void> {
-    // Model is loaded on-demand by the Python script
-    // First run will download the model (~600MB)
+    // Start the persistent server process
+    await ParakeetModel.startServer();
   }
 
   async transcribe(
@@ -46,9 +111,11 @@ export class ParakeetModel extends STTModel {
   ): Promise<TranscriptionResult> {
     const startTime = Date.now();
 
-    // Create Python script if it doesn't exist
-    if (!fs.existsSync(this.scriptPath)) {
-      this.createTranscriptionScript();
+    // Ensure server is running
+    await ParakeetModel.startServer();
+
+    if (!ParakeetModel.serverProcess) {
+      throw new Error('Parakeet server process not available');
     }
 
     const language = options?.language || 'en';
@@ -56,134 +123,46 @@ export class ParakeetModel extends STTModel {
       ? 'nvidia/parakeet-tdt-0.6b-v3'  // 25 languages
       : 'nvidia/parakeet-tdt-0.6b-v2'; // English only
 
-    // Use a temp file for output instead of stdout (NeMo logs to stdout)
-    const outputFile = path.join(path.dirname(audioFilePath), `parakeet_out_${Date.now()}.json`);
-
-    const { stdout, stderr } = await execAsync(
-      `python3 ${this.scriptPath} "${audioFilePath}" ${modelName} ${language} "${outputFile}"`,
-      { maxBuffer: 10 * 1024 * 1024 } // 10MB buffer for large outputs
-    );
-
-    // Log for debugging
-    if (stdout.trim()) {
-      console.log('[DEBUG] Python stdout:', stdout.substring(0, 200));
-    }
-    if (stderr.trim()) {
-      console.log('[DEBUG] Python stderr:', stderr.substring(0, 200));
-    }
-
-    // If output was written to stdout instead of file (fallback)
-    if (!fs.existsSync(outputFile) && stdout.trim()) {
-      try {
-        const result = JSON.parse(stdout.trim());
-        const duration = Date.now() - startTime;
-        return {
-          text: result.text,
-          duration,
-          confidence: result.confidence ?? 0.95,
-          language: language,
-        };
-      } catch (parseError) {
-        console.error('[ERROR] Failed to parse stdout as JSON:', parseError);
-        // Continue to file reading attempt
-      }
-    }
-
-    const duration = Date.now() - startTime;
-
-    // Read result from file
-    try {
-      const resultJson = fs.readFileSync(outputFile, 'utf-8');
-      const result = JSON.parse(resultJson);
-
-      // Clean up temp file
-      try {
-        fs.unlinkSync(outputFile);
-      } catch (e) {
-        // Ignore cleanup errors
-      }
-
-      return {
-        text: result.text,
-        duration,
-        confidence: result.confidence ?? 0.95,
-        language: language,
+    // Send request to server
+    return new Promise((resolve, reject) => {
+      const request = {
+        audio_path: audioFilePath,
+        model_name: modelName,
+        language: language
       };
-    } catch (error) {
-      // Clean up temp file
-      try {
-        fs.unlinkSync(outputFile);
-      } catch (e) {
-        // Ignore cleanup errors
-      }
-      throw error;
-    }
-  }
 
-  private createTranscriptionScript() {
-    const script = `#!/usr/bin/env python3
-"""
-Parakeet TDT Transcription Script
-Fastest STT model: 3,333x real-time!
-"""
-import sys
-import json
-import os
-import logging
+      // Set up listener for response (one-time)
+      const onData = (data: Buffer) => {
+        const lines = data.toString().split('\n');
+        for (const line of lines) {
+          if (line.trim()) {
+            try {
+              const response = JSON.parse(line);
+              if (response.error) {
+                ParakeetModel.serverProcess?.stdout?.removeListener('data', onData);
+                reject(new Error(response.error));
+              } else if (response.text !== undefined) {
+                ParakeetModel.serverProcess?.stdout?.removeListener('data', onData);
+                const duration = Date.now() - startTime;
+                resolve({
+                  text: response.text,
+                  duration,
+                  confidence: response.confidence ?? 0.95,
+                  language: language,
+                });
+              }
+            } catch (e) {
+              // Ignore parsing errors, might be logging output
+            }
+          }
+        }
+      };
 
-# Suppress NeMo and other library logging
-os.environ['HYDRA_FULL_ERROR'] = '0'
-logging.getLogger('nemo_logger').setLevel(logging.CRITICAL)
-logging.getLogger('pytorch_lightning').setLevel(logging.CRITICAL)
-logging.basicConfig(level=logging.CRITICAL)
+      ParakeetModel.serverProcess!.stdout?.on('data', onData);
 
-import nemo.collections.asr as nemo_asr
-
-def transcribe(audio_path, model_name, language='en', output_file=None):
-    # Load model from Hugging Face
-    asr_model = nemo_asr.models.ASRModel.from_pretrained(model_name)
-
-    # Set language if multilingual (v3)
-    if 'v3' in model_name and language != 'en':
-        # Parakeet v3 supports 25 languages
-        asr_model.change_decoding_strategy(None)
-
-    # Transcribe
-    result = asr_model.transcribe([audio_path])[0]
-
-    # Extract text and confidence from Hypothesis object
-    transcription = result.text if hasattr(result, 'text') else str(result)
-    confidence = result.confidence if hasattr(result, 'confidence') else 0.95
-
-    # Prepare output
-    output = {
-        'text': transcription,
-        'confidence': float(confidence)
-    }
-
-    # Always print to stdout (for fallback)
-    print(json.dumps(output), file=sys.stdout, flush=True)
-
-    # Also write to file if specified
-    if output_file:
-        with open(output_file, 'w') as f:
-            json.dump(output, f)
-
-if __name__ == '__main__':
-    if len(sys.argv) < 3:
-        print("Usage: python parakeet_transcribe.py <audio_path> <model_name> [language]")
-        sys.exit(1)
-
-    audio_path = sys.argv[1]
-    model_name = sys.argv[2]
-    language = sys.argv[3] if len(sys.argv) > 3 else 'en'
-    output_file = sys.argv[4] if len(sys.argv) > 4 else None
-
-    transcribe(audio_path, model_name, language, output_file)
-`;
-
-    fs.writeFileSync(this.scriptPath, script);
-    fs.chmodSync(this.scriptPath, '755');
+      // Send request to server
+      ParakeetModel.serverProcess!.stdin?.write(JSON.stringify(request) + '\n');
+    });
   }
 
   getInfo(): ModelInfo {
@@ -204,6 +183,11 @@ if __name__ == '__main__':
   }
 
   async cleanup(): Promise<void> {
-    // No persistent resources to clean
+    // Shut down the server process
+    if (ParakeetModel.serverProcess) {
+      ParakeetModel.serverProcess.kill();
+      ParakeetModel.serverProcess = null;
+      ParakeetModel.initPromise = null;
+    }
   }
 }
