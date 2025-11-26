@@ -138,50 +138,34 @@ logging.basicConfig(level=logging.CRITICAL)
 import nemo.collections.asr as nemo_asr
 
 def transcribe(audio_path, model_name, language='en', output_file=None):
-    try:
-        # Load model from Hugging Face
-        asr_model = nemo_asr.models.ASRModel.from_pretrained(model_name)
+    # Load model from Hugging Face
+    asr_model = nemo_asr.models.ASRModel.from_pretrained(model_name)
 
-        # Set language if multilingual (v3)
-        if 'v3' in model_name and language != 'en':
-            # Parakeet v3 supports 25 languages
-            asr_model.change_decoding_strategy(None)
+    # Set language if multilingual (v3)
+    if 'v3' in model_name and language != 'en':
+        # Parakeet v3 supports 25 languages
+        asr_model.change_decoding_strategy(None)
 
-        # Transcribe
-        result = asr_model.transcribe([audio_path])[0]
+    # Transcribe
+    result = asr_model.transcribe([audio_path])[0]
 
-        # Extract text and confidence from Hypothesis object
-        transcription = result.text if hasattr(result, 'text') else str(result)
-        confidence = result.confidence if hasattr(result, 'confidence') else 0.95
+    # Extract text and confidence from Hypothesis object
+    transcription = result.text if hasattr(result, 'text') else str(result)
+    confidence = result.confidence if hasattr(result, 'confidence') else 0.95
 
-        # Prepare output
-        output = {
-            'text': transcription,
-            'confidence': float(confidence)
-        }
+    # Prepare output
+    output = {
+        'text': transcription,
+        'confidence': float(confidence)
+    }
 
-        # Always print to stdout (for fallback)
-        print(json.dumps(output), file=sys.stdout, flush=True)
+    # Always print to stdout (for fallback)
+    print(json.dumps(output), file=sys.stdout, flush=True)
 
-        # Also write to file if specified
-        if output_file:
-            with open(output_file, 'w') as f:
-                json.dump(output, f)
-    except Exception as e:
-        # Output error as JSON
-        error_output = {
-            'error': str(e),
-            'text': '',
-            'confidence': 0
-        }
-        print(json.dumps(error_output), file=sys.stdout, flush=True)
-        if output_file:
-            try:
-                with open(output_file, 'w') as f:
-                    json.dump(error_output, f)
-            except:
-                pass
-        raise
+    # Also write to file if specified
+    if output_file:
+        with open(output_file, 'w') as f:
+            json.dump(output, f)
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
