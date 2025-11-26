@@ -82,12 +82,10 @@ async function toggleRecording() {
           throw new Error(`Audio file not found: ${audioFilePath}`);
         }
 
-        // Initialize transcription service
+        // Transcription service already initialized on app startup
         if (!transcriptionService) {
-          console.log('🚀 Initializing transcription service...');
-          transcriptionService = new ModularTranscriptionService();
-          await transcriptionService.initialize();
-          console.log('✓ Transcription service initialized');
+          console.error('❌ Transcription service not available');
+          throw new Error('Transcription service failed to initialize');
         }
 
         try {
@@ -171,9 +169,25 @@ function registerShortcuts() {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   createWindow();
   registerShortcuts();
+
+  // Load transcription service and model on startup
+  console.log('🚀 Initializing transcription service...');
+  transcriptionService = new ModularTranscriptionService();
+
+  try {
+    await transcriptionService.initialize();
+    console.log('✓ Model loaded successfully - ready for transcription!');
+  } catch (error) {
+    console.error('❌ Failed to load model:', error);
+  }
+
+  // Signal UI that app is ready
+  if (mainWindow) {
+    mainWindow.webContents.send('app-ready');
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
