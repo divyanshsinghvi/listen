@@ -168,14 +168,15 @@ export class APIServer {
       try {
         // Transcribe
         const preferences = data.preferences as RoutingPreferences | undefined;
-        const text = await this.transcriptionService.transcribe(tempPath, {
+        const result = await this.transcriptionService.transcribe(tempPath, {
           routingPreferences: preferences
         });
 
         this.sendJSON(res, 200, {
-          text,
-          wordCount: text.split(/\s+/).length,
-          characterCount: text.length
+          text: result.text,
+          modelUsed: result.modelUsed,
+          wordCount: result.text.split(/\s+/).length,
+          characterCount: result.text.length
         });
       } finally {
         // Clean up temp file
@@ -207,14 +208,15 @@ export class APIServer {
 
       // Transcribe
       const preferences = data.preferences as RoutingPreferences | undefined;
-      const text = await this.transcriptionService.transcribe(data.path, {
+      const result = await this.transcriptionService.transcribe(data.path, {
         routingPreferences: preferences
       });
 
       this.sendJSON(res, 200, {
-        text,
-        wordCount: text.split(/\s+/).length,
-        characterCount: text.length
+        text: result.text,
+        modelUsed: result.modelUsed,
+        wordCount: result.text.split(/\s+/).length,
+        characterCount: result.text.length
       });
     } catch (error) {
       this.sendJSON(res, 500, {
