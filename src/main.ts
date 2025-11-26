@@ -42,6 +42,7 @@ async function toggleRecording() {
   if (!isRecording) {
     // Start recording
     isRecording = true;
+    console.log('🎙️ Starting recording...');
     mainWindow.show();
     mainWindow.setAlwaysOnTop(true, 'screen-saver');
     mainWindow.webContents.send('recording-state', { state: 'recording' });
@@ -50,48 +51,81 @@ async function toggleRecording() {
       recordingManager = new RecordingManager();
     }
 
-    await recordingManager.startRecording();
+    try {
+      await recordingManager.startRecording();
+      console.log('✓ Recording started successfully');
+    } catch (error) {
+      console.error('❌ Recording start error:', error);
+      isRecording = false;
+    }
   } else {
     // Stop recording
     isRecording = false;
+    console.log('⏹️ Stopping recording...');
     mainWindow.webContents.send('recording-state', { state: 'processing' });
 
     if (recordingManager) {
-      const audioFilePath = await recordingManager.stopRecording();
-
-      // Transcribe
-      if (!transcriptionService) {
-        transcriptionService = new ModularTranscriptionService();
-        await transcriptionService.initialize();
-      }
-
       try {
-        // Auto-select best model for desktop
-        const transcription = await transcriptionService.transcribe(audioFilePath, {
-          routingPreferences: {
-            priority: 'balance',
-            platform: 'desktop',
-            language: 'en' // Can be made configurable
-          }
-        });
+        const audioFilePath = await recordingManager.stopRecording();
+        console.log(`✓ Recording stopped. Audio file: ${audioFilePath}`);
 
-        // Copy to clipboard
-        clipboard.writeText(transcription);
+        // Check if file exists and has size
+        const fs = require('fs');
+        if (fs.existsSync(audioFilePath)) {
+          const size = fs.statSync(audioFilePath).size;
+          console.log(`📁 Audio file size: ${size} bytes`);
+        } else {
+          throw new Error(`Audio file not found: ${audioFilePath}`);
+        }
 
-        mainWindow.webContents.send('recording-state', {
-          state: 'completed',
-          text: transcription
-        });
+        // Initialize transcription service
+        if (!transcriptionService) {
+          console.log('🚀 Initializing transcription service...');
+          transcriptionService = new ModularTranscriptionService();
+          await transcriptionService.initialize();
+          console.log('✓ Transcription service initialized');
+        }
 
-        // Hide window after a short delay
-        setTimeout(() => {
-          mainWindow?.hide();
-        }, 1500);
-      } catch (error) {
-        console.error('Transcription error:', error);
+        try {
+          console.log('🔄 Starting transcription...');
+          // Auto-select best model for desktop
+          const transcription = await transcriptionService.transcribe(audioFilePath, {
+            routingPreferences: {
+              priority: 'balance',
+              platform: 'desktop',
+              language: 'en'
+            }
+          });
+
+          console.log(`✓ Transcription complete: "${transcription}"`);
+
+          // Copy to clipboard
+          clipboard.writeText(transcription);
+
+          mainWindow.webContents.send('recording-state', {
+            state: 'completed',
+            text: transcription
+          });
+
+          // Hide window after a short delay
+          setTimeout(() => {
+            mainWindow?.hide();
+          }, 1500);
+        } catch (transcriptionError) {
+          console.error('❌ Transcription error:', transcriptionError);
+          mainWindow.webContents.send('recording-state', {
+            state: 'error',
+            error: transcriptionError instanceof Error ? transcriptionError.message : 'Transcription failed'
+          });
+          setTimeout(() => {
+            mainWindow?.hide();
+          }, 2000);
+        }
+      } catch (recordingError) {
+        console.error('❌ Recording stop error:', recordingError);
         mainWindow.webContents.send('recording-state', {
           state: 'error',
-          error: error instanceof Error ? error.message : 'Transcription failed'
+          error: recordingError instanceof Error ? recordingError.message : 'Recording failed'
         });
         setTimeout(() => {
           mainWindow?.hide();

@@ -33,23 +33,84 @@ export class RecordingManager {
   private recordWithWindowsAudio(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        const record = require('node-record-lpcm16');
-        const file = fs.createWriteStream(this.audioFilePath);
+        const { spawn } = require('child_process');
 
-        // Start recording
-        this.recordingStream = record.record({
-          sampleRate: 16000,
-          channels: 1,
-          audioType: 'wav'
+        // Use SoundRec (Windows built-in) or sox for recording
+        // Try SoundRec first (Windows 10+)
+        const scriptPath = path.join(__dirname, '..', '..', 'record_audio.py');
+
+        // Create Python recording script if it doesn't exist
+        if (!fs.existsSync(scriptPath)) {
+          const script = `#!/usr/bin/env python3
+import sounddevice as sd
+import soundfile as sf
+import sys
+import signal
+
+recording_data = None
+is_recording = True
+
+def signal_handler(sig, frame):
+    global is_recording
+    is_recording = False
+
+def record_audio(output_path):
+    """Record audio from microphone until killed"""
+    global recording_data, is_recording
+
+    sample_rate = 16000
+    channels = 1
+    max_duration = 300  # Max 5 minutes
+
+    print(f"Recording to {output_path}...", flush=True)
+
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+
+    try:
+        # Record audio with blocking - will continue until process is killed
+        recording_data = sd.rec(int(sample_rate * max_duration),
+                               samplerate=sample_rate,
+                               channels=channels,
+                               dtype='int16',
+                               blocking=True)
+    except KeyboardInterrupt:
+        pass
+
+    # Save the recorded audio
+    if recording_data is not None and len(recording_data) > 0:
+        sf.write(output_path, recording_data, sample_rate)
+        print(f"Recording saved to {output_path}", flush=True)
+    else:
+        print("No audio recorded", flush=True)
+
+if __name__ == '__main__':
+    if len(sys.argv) > 1:
+        output_path = sys.argv[1]
+        record_audio(output_path)
+    else:
+        print("Usage: python record_audio.py <output_path>")
+`;
+          fs.writeFileSync(scriptPath, script);
+        }
+
+        // Spawn Python process for recording
+        this.recordingProcess = spawn('python', [scriptPath, this.audioFilePath]);
+
+        this.recordingProcess.stdout?.on('data', (data) => {
+          console.log(`Recording: ${data.toString().trim()}`);
         });
 
-        this.recordingStream.pipe(file);
+        this.recordingProcess.stderr?.on('data', (data) => {
+          console.error(`Recording error: ${data.toString().trim()}`);
+        });
 
-        this.recordingStream.on('error', (error: Error) => {
-          console.error('Recording error:', error);
+        this.recordingProcess.on('error', (error: Error) => {
+          console.error('Recording process error:', error);
           reject(error);
         });
 
+        // Start recording immediately
         resolve();
       } catch (error) {
         reject(error);
