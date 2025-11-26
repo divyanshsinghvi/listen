@@ -2,6 +2,7 @@ import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, screen } from '
 import * as path from 'path';
 import { RecordingManager } from './recording';
 import { ModularTranscriptionService } from './transcription-router';
+import * as robot from 'robotjs';
 
 let mainWindow: BrowserWindow | null = null;
 let recordingManager: RecordingManager | null = null;
@@ -99,18 +100,28 @@ async function toggleRecording() {
 
           console.log(`✓ Transcription complete: "${result.text}" (${result.modelUsed})`);
 
-          // Copy to clipboard
+          // Also copy to clipboard as backup
           clipboard.writeText(result.text);
 
-          mainWindow.webContents.send('recording-state', {
-            state: 'completed',
-            text: result.text
-          });
+          // Hide window immediately
+          mainWindow?.hide();
 
-          // Hide window after a short delay
+          // Type the text at current cursor position
+          console.log(`📝 Typing transcribed text: "${result.text}"`);
+
+          // Small delay to ensure window focus is released
           setTimeout(() => {
-            mainWindow?.hide();
-          }, 1500);
+            try {
+              // Type the transcribed text character by character
+              robot.typeString(result.text);
+              console.log('✓ Text typed successfully');
+            } catch (error) {
+              console.error('❌ Error typing text:', error);
+              // Fallback: user can paste from clipboard
+              clipboard.writeText(result.text);
+              console.log('ℹ️ Text copied to clipboard as fallback');
+            }
+          }, 100);
         } catch (transcriptionError) {
           console.error('❌ Transcription error:', transcriptionError);
           mainWindow.webContents.send('recording-state', {
