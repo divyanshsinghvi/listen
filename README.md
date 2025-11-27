@@ -109,9 +109,25 @@ See [MODEL_COMPARISON.md](./MODEL_COMPARISON.md) for detailed benchmarks and com
 - 🔜 macOS (Desktop - Coming soon)
 - ✅ Windows (Desktop - Initial support)
 
+## Project Structure
+
+```
+listen/
+├── src/                    # TypeScript source code
+│   ├── models/            # STT model implementations
+│   ├── assets/            # UI (HTML/CSS)
+│   └── main.ts            # Electron entry point
+├── scripts/               # Python utility scripts
+│   └── record_audio_windows.py
+├── docs/                  # Documentation
+└── mobile/                # Native iOS & Android apps
+```
+
+See [ARCHITECTURE.md](./docs/ARCHITECTURE.md#file-structure) for complete structure.
+
 ## Documentation
 
-- [Architecture Overview](./ARCHITECTURE.md) - System design and modular architecture
+- [Architecture Overview](./docs/ARCHITECTURE.md) - System design and modular architecture
 - [Model Comparison](./MODEL_COMPARISON.md) - Detailed STT model benchmarks
 - [Quick Start Guide](./QUICKSTART.md) - Get up and running in 5 minutes
 - [iOS README](./mobile/ios/README.md) - iOS app documentation

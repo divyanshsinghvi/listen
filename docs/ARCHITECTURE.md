@@ -335,6 +335,39 @@ The implementation uses `ctypes.windll.user32` API calls:
 
 This provides seamless experience without cursor position changes.
 
+### Python Scripts Architecture
+
+Python utility scripts are organized in a dedicated `scripts/` directory for modularity:
+
+**Principles:**
+- Each Python script is a standalone, self-contained module
+- Scripts are spawned as child processes from TypeScript
+- No embedded Python code in TypeScript files
+- Proper Python tooling support (linting, formatting, debugging)
+
+**Example: Windows Audio Recording**
+```
+Recording Flow:
+  TypeScript (src/recording.ts)
+      ↓
+  spawn('python', ['scripts/record_audio_windows.py', outputPath])
+      ↓
+  Python (scripts/record_audio_windows.py)
+      ├─ Initialize PyAudioWPatch
+      ├─ Open microphone stream
+      ├─ Write WAV file
+      └─ Handle SIGINT for graceful shutdown
+      ↓
+  Return WAV file path to TypeScript
+```
+
+**Benefits:**
+- Clean separation: TypeScript ↔ Python communication via spawn/stdout
+- IDE support: Full syntax highlighting, linting for Python files
+- Testability: Scripts can be tested independently
+- Maintainability: Python code not embedded in string literals
+- Modularity: Easy to add more Python scripts as needed
+
 ---
 
 ## Data Flow

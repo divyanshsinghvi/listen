@@ -183,18 +183,25 @@ python -c "import torch; print(torch.cuda.is_available())"
 ### Project Structure
 ```
 listen/
-├── src/                    # TypeScript source
-│   ├── main.ts            # Electron main process
-│   ├── recording.ts       # Audio recording
-│   ├── transcription-router.ts
-│   ├── models/            # STT model implementations
-│   └── assets/            # UI (HTML/CSS)
-├── dist/                  # Compiled JavaScript
-├── docs/                  # Documentation
-├── package.json           # Node dependencies
-├── requirements.txt       # Python dependencies
-├── tsconfig.json         # TypeScript config
-└── SETUP.md              # This file
+├── src/                           # TypeScript source code
+│   ├── main.ts                   # Electron main process
+│   ├── recording.ts              # Audio recording manager
+│   ├── transcription-router.ts   # Transcription service routing
+│   ├── dataset.ts                # Dataset collection
+│   ├── models/                   # STT model implementations
+│   │   ├── ModelRouter.ts        # Model selection logic
+│   │   ├── ParakeetModel.ts      # Parakeet STT model
+│   │   └── ... (other models)
+│   └── assets/                   # UI (HTML/CSS)
+├── scripts/                       # Python utility scripts
+│   └── record_audio_windows.py   # Windows audio recording
+├── dist/                          # Compiled JavaScript
+├── docs/                          # Documentation & architecture
+├── window_focus.py               # Windows API focus management
+├── package.json                  # Node dependencies
+├── requirements.txt              # Python dependencies
+├── tsconfig.json                 # TypeScript config
+└── SETUP.md                      # This file
 ```
 
 ### Build Commands
@@ -214,6 +221,27 @@ rm -rf dist && npm run build
 2. Extend `STTModel` interface
 3. Register in `ModelRouter.ts`
 4. Add Python implementation script if needed
+
+### Python Scripts Organization
+
+Python utility scripts are organized in the `scripts/` directory:
+
+- **`record_audio_windows.py`** - Windows audio recording using PyAudioWPatch
+  - Used by `src/recording.ts` for WASAPI audio capture
+  - Supports SIGINT/SIGTERM for graceful shutdown
+  - Standalone script for better maintainability and IDE support
+
+To add a new Python script:
+1. Create new file in `scripts/` directory
+2. Add proper shebang: `#!/usr/bin/env python3`
+3. Include module docstring explaining purpose
+4. Import from spawn process in TypeScript: `spawn('python', [scriptPath, arg1, arg2])`
+
+**Benefits of this structure:**
+- Python code gets proper syntax highlighting
+- IDE linting and formatting work correctly
+- Easier to debug and test scripts independently
+- Clear separation of concerns
 
 ---
 
