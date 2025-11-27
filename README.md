@@ -107,7 +107,7 @@ See [MODEL_COMPARISON.md](./MODEL_COMPARISON.md) for detailed benchmarks and com
 - ✅ **iOS 16+** (Native Swift app) - See [mobile/ios/README.md](./mobile/ios/README.md)
 - ✅ **Android 7+** (Native Kotlin app) - See [mobile/android/README.md](./mobile/android/README.md)
 - 🔜 macOS (Desktop - Coming soon)
-- 🔜 Windows (Desktop - Coming soon)
+- ✅ Windows (Desktop - Initial support)
 
 ## Documentation
 
