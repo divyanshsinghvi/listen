@@ -1,5 +1,6 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, screen } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { RecordingManager } from './recording';
@@ -9,6 +10,7 @@ import { DatasetManager } from './dataset';
 const execAsync = promisify(exec);
 
 let mainWindow: BrowserWindow | null = null;
+let floatingButtonWindow: BrowserWindow | null = null;
 let recordingManager: RecordingManager | null = null;
 let transcriptionService: ModularTranscriptionService | null = null;
 let isRecording = false;
@@ -50,6 +52,44 @@ async function restoreWindowFocus(windowInfo: any): Promise<boolean> {
   return false;
 }
 
+// Floating button position persistence
+const buttonPositionFile = path.join(app.getPath('userData'), 'button-position.json');
+
+interface ButtonPosition {
+  x: number;
+  y: number;
+}
+
+function loadButtonPosition(): ButtonPosition {
+  try {
+    if (fs.existsSync(buttonPositionFile)) {
+      const data = fs.readFileSync(buttonPositionFile, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.log('Could not load button position, using default');
+  }
+
+  // Default position: bottom-right
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+  return {
+    x: width - 100,
+    y: height - 100
+  };
+}
+
+function saveButtonPosition(position: ButtonPosition) {
+  try {
+    const dir = path.dirname(buttonPositionFile);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(buttonPositionFile, JSON.stringify(position, null, 2));
+  } catch (error) {
+    console.error('Could not save button position:', error);
+  }
+}
+
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
@@ -78,6 +118,45 @@ function createWindow() {
   });
 }
 
+function createFloatingButtonWindow() {
+  const position = loadButtonPosition();
+
+  floatingButtonWindow = new BrowserWindow({
+    width: 60,
+    height: 60,
+    x: position.x,
+    y: position.y,
+    transparent: true,
+    frame: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    focusable: false, // Don't steal focus when interacting with button
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+
+  floatingButtonWindow.loadFile(path.join(__dirname, '../assets/floating-button.html'));
+
+  // Handle window closed
+  floatingButtonWindow.on('closed', () => {
+    floatingButtonWindow = null;
+  });
+
+  // Send initial state
+  floatingButtonWindow.webContents.on('did-finish-load', () => {
+    updateFloatingButtonState(isRecording ? 'recording' : 'idle');
+  });
+}
+
+function updateFloatingButtonState(state: string) {
+  if (floatingButtonWindow && !floatingButtonWindow.isDestroyed()) {
+    floatingButtonWindow.webContents.send('floating-button-state', { state });
+  }
+}
+
 async function toggleRecording() {
   if (!mainWindow) return;
 
@@ -96,6 +175,7 @@ async function toggleRecording() {
     mainWindow.showInactive();
     mainWindow.setAlwaysOnTop(true, 'screen-saver');
     mainWindow.webContents.send('recording-state', { state: 'recording' });
+    updateFloatingButtonState('recording');
 
     if (!recordingManager) {
       recordingManager = new RecordingManager();
@@ -117,6 +197,7 @@ async function toggleRecording() {
     console.log('='.repeat(60));
 
     mainWindow.webContents.send('recording-state', { state: 'processing' });
+    updateFloatingButtonState('processing');
 
     if (recordingManager) {
       try {
@@ -196,6 +277,8 @@ async function toggleRecording() {
           console.log(`\n[TIME] [Stage: Clipboard] +${Date.now() - pipelineStart}ms (took ${clipboardTime}ms)`);
           console.log(`  [OK] Text copied to clipboard`);
 
+          updateFloatingButtonState('idle');
+
           // Hide window immediately
           mainWindow?.hide();
 
@@ -256,6 +339,7 @@ async function toggleRecording() {
           state: 'error',
           error: recordingError instanceof Error ? recordingError.message : 'Recording failed'
         });
+        updateFloatingButtonState('idle');
         setTimeout(() => {
           mainWindow?.hide();
         }, 2000);
@@ -289,6 +373,7 @@ function registerShortcuts() {
 
 app.whenReady().then(async () => {
   createWindow();
+  createFloatingButtonWindow();
   registerShortcuts();
 
   // Load transcription service and model on startup
@@ -322,6 +407,9 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  if (floatingButtonWindow && !floatingButtonWindow.isDestroyed()) {
+    floatingButtonWindow.destroy();
+  }
 });
 
 // IPC handlers
@@ -331,4 +419,27 @@ ipcMain.on('cancel-recording', () => {
     isRecording = false;
   }
   mainWindow?.hide();
+});
+
+// Floating button IPC handlers
+ipcMain.on('floating-button-click', () => {
+  toggleRecording();
+});
+
+ipcMain.on('floating-button-drag', (event, { deltaX, deltaY }) => {
+  if (floatingButtonWindow && !floatingButtonWindow.isDestroyed()) {
+    const [x, y] = floatingButtonWindow.getPosition();
+    floatingButtonWindow.setPosition(x + deltaX, y + deltaY);
+  }
+});
+
+ipcMain.on('floating-button-drag-end', () => {
+  if (floatingButtonWindow && !floatingButtonWindow.isDestroyed()) {
+    const [x, y] = floatingButtonWindow.getPosition();
+    saveButtonPosition({ x, y });
+  }
+});
+
+ipcMain.on('floating-button-ready', () => {
+  updateFloatingButtonState(isRecording ? 'recording' : 'idle');
 });
