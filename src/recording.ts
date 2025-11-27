@@ -127,6 +127,13 @@ export class RecordingManager {
     return new Promise((resolve) => {
       if (this.recordingProcess) {
         this.recordingProcess.on('close', () => {
+          // Check if audio file has meaningful data (WAV header is ~44 bytes, need more for actual audio)
+          if (fs.existsSync(this.audioFilePath)) {
+            const stats = fs.statSync(this.audioFilePath);
+            if (stats.size < 100) {
+              console.warn(`⚠️  Warning: Audio file is very small (${stats.size} bytes). Microphone may not be connected or working.`);
+            }
+          }
           resolve(this.audioFilePath);
         });
 

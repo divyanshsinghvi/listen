@@ -56,13 +56,20 @@ def record_audio(output_path):
         print("Microphone active. Press Ctrl+C to stop.", flush=True)
 
         # Record until stopped
+        frames_recorded = 0
         while is_recording:
             try:
                 data = audio_stream.read(chunk_size, exception_on_overflow=False)
-                wf.writeframes(data)
+                if len(data) > 0:
+                    wf.writeframes(data)
+                    frames_recorded += 1
             except Exception as e:
                 print(f"Error reading audio: {e}", flush=True)
                 break
+
+        # Check if we actually captured any audio
+        if frames_recorded == 0:
+            print("WARNING: No audio data was captured. Is your microphone connected and working?", flush=True)
 
     except Exception as e:
         print(f"Error: {e}", flush=True)
