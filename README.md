@@ -27,9 +27,9 @@ npm install
 
    ### 🔥 **UNDER 1B Parameters** (Recommended - Edge-optimized)
 
-   **Option A: Parakeet TDT v3 (FASTEST - 3,333x real-time!)**
+   **Option A: Parakeet TDT v3 (FASTEST)**
    ```bash
-   ./install-parakeet.sh  # 600M params, 6.32% WER, 25 languages
+   ./install-parakeet.sh  # 600M params, 6.32% WER, 25 languages, ultra-fast inference
    ```
 
    **Option B: Moonshine (Mobile-optimized)**

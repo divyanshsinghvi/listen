@@ -52,7 +52,7 @@ Listen is a high-performance voice-to-text overlay application that records audi
 │                            ↓                                      │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │  STT Models (src/models/*.ts)                           │   │
-│  │  ├─ ParakeetModel (3,333x real-time) ⭐ DEFAULT         │   │
+│  │  ├─ ParakeetModel (Ultra-fast inference) ⭐ DEFAULT     │   │
 │  │  ├─ CanaryModel (418x real-time)                        │   │
 │  │  ├─ DistilWhisperModel (6x real-time)                  │   │
 │  │  ├─ MoonshineModel (5-15x real-time)                   │   │
@@ -177,10 +177,10 @@ async transcribe(
 
 **Model Priority Order (by speed):**
 
-| Rank | Model | Speed | Real-time | Accuracy | Languages | Size | GPU |
-|------|-------|-------|-----------|----------|-----------|------|-----|
-| 1 | **Parakeet TDT 0.6B v3** | 3,333x | 1 hour → 1 sec | 6.32% WER | 25 | 600MB | Optional |
-| 2 | Canary Qwen 2.5B | 418x | ~1.4 sec/min | 5.63% WER | Multi | 2.5GB | Yes |
+| Rank | Model | Speed | Inference Time | Accuracy | Languages | Size | GPU |
+|------|-------|-------|----------|----------|-----------|------|-----|
+| 1 | **Parakeet TDT 0.6B v3** | Ultra-fast | ~30s for 5s audio | 6.32% WER | 25 | 600MB | Yes |
+| 2 | Canary Qwen 2.5B | Very fast | ~5-10s for 5s audio | 5.63% WER | Multi | 2.5GB | Yes |
 | 3 | Distil-Whisper small | 6x | 10 min → 1.6 min | <1% WER | EN | 250MB | No |
 | 4 | Moonshine base | 5-15x | Variable | Good | Multi | 200MB | No |
 | 5 | FasterWhisper base | 4x | 2.5x faster | Very Good | EN | 74MB | No |
@@ -196,10 +196,11 @@ async transcribe(
 ```
 
 **Why Parakeet First?**
-- Fastest: 3,333x real-time = 1 hour audio in 1 second
-- Reasonable accuracy: 6.32% WER (competitive)
+- Ultra-fast inference: Excellent speed-to-accuracy tradeoff
+- Reasonable accuracy: 6.32% WER (competitive for lightweight model)
 - Supports 25 European languages
-- Perfect for desktop use case
+- Perfect balance for desktop use case
+- Persistent server architecture: First run ~30s (includes model load), subsequent runs much faster with preloaded model
 
 **Scoring System (if multiple criteria needed):**
 ```typescript
@@ -251,6 +252,88 @@ result = model.transcribe([audio_path])[0]
 # Extract text from Hypothesis object
 print(result.text)  # Critical: must extract .text property
 ```
+
+---
+
+## Key Implementation Details
+
+### Persistent Server Architecture
+
+The Parakeet model runs as a persistent server process that:
+- Loads the model once on initialization (~21 seconds first run)
+- Reuses the loaded model for subsequent transcriptions
+- Communicates via JSON over TCP socket
+- Maintains inference state across multiple requests
+- Automatically caches model weights after first load
+
+**Benefits:**
+- Dramatically faster subsequent transcriptions (no reload)
+- Consistent performance across requests
+- Efficient GPU memory utilization
+
+### Line Buffering for Complete Transcription
+
+The transcription system implements line-based buffering to handle network packet fragmentation:
+
+```typescript
+// Problem: Large transcription text arrives in multiple TCP chunks
+// Solution: Accumulate data and only process complete JSON lines
+
+static lineBuffer: string = '';
+
+const onData = (data: Buffer) => {
+  lineBuffer += data.toString();
+  const lines = lineBuffer.split('\n');
+  lineBuffer = lines[lines.length - 1]; // Keep incomplete line
+
+  // Process only complete lines
+  for (let i = 0; i < lines.length - 1; i++) {
+    const line = lines[i];
+    if (line.trim()) {
+      try {
+        const response = JSON.parse(line);
+        if (response.text !== undefined) {
+          // Transcription complete
+          resolve(response);
+        }
+      } catch (e) {
+        // Non-JSON lines (logs) ignored silently
+      }
+    }
+  }
+};
+```
+
+This ensures complete transcription text is captured regardless of packet size or network conditions.
+
+### Window Focus Management
+
+To prevent cursor displacement when recording starts, the app:
+
+1. **Captures active window handle** using Windows API before recording
+   ```typescript
+   const previousWindowFocus = await captureWindowFocus();
+   ```
+
+2. **Displays overlay without stealing focus** using `showInactive()`
+   ```typescript
+   mainWindow.showInactive(); // Don't bring window to foreground
+   ```
+
+3. **Restores original window focus** before auto-pasting text
+   ```typescript
+   const focusRestored = await restoreWindowFocus(previousWindowFocus);
+   if (focusRestored) {
+     // Safe to paste text now
+     await pasteText();
+   }
+   ```
+
+The implementation uses `ctypes.windll.user32` API calls:
+- `GetForegroundWindow()` - Capture current window handle
+- `SetForegroundWindow(hwnd)` - Restore focus to saved handle
+
+This provides seamless experience without cursor position changes.
 
 ---
 
@@ -354,22 +437,30 @@ Latency:       <100ms startup
 ### Transcription
 ```
 Model:         Parakeet TDT 0.6B v3
-Real-time:     3,333x
-Duration:      ~30 seconds for 5 sec audio
-GPU:           RTX 3070
-Memory:        ~600 MB
+First Run:     ~30 seconds (includes model initialization + loading)
+Subsequent:    ~1-2 seconds per transcription (preloaded persistent server)
+GPU:           RTX 3070 required for optimal speed
+Memory:        ~600 MB model + ~400 MB runtime
 Accuracy:      6.32% WER (Word Error Rate)
 Languages:     25 European languages
+Architecture:  Persistent server with line buffering for complete text capture
 ```
 
 ### End-to-End
 ```
-User Press → Recording Start:  100ms
-Recording Duration:             5 seconds
-Recording Stop → File Ready:    50ms
-Transcription Processing:       30 seconds
-Clipboard Copy & Display:       10ms
-Total Time:                     ~35 seconds
+APP STARTUP (happens once when you start the app):
+  Persistent server initialization:  ~21 seconds
+  Model loading to GPU:              Included in above
+  Ready for transcriptions:          Display shown, ready to record
+
+EACH TRANSCRIPTION (after app is ready):
+  User Press → Recording Start:      100ms
+  Recording Duration:                5 seconds (user speaks)
+  Recording Stop → File Ready:       50ms
+  Transcription Processing:          ~1-2 seconds (via persistent server)
+  Clipboard Copy & Display:          10ms
+  Auto-paste:                        Immediate with focus restoration
+  Total Time:                        ~6-7 seconds
 ```
 
 ---
@@ -494,12 +585,13 @@ listen/
 │   ├── main.ts                    # Electron entry point
 │   ├── recording.ts               # Audio recording manager
 │   ├── transcription-router.ts    # Transcription service
+│   ├── dataset.ts                 # Dataset collection for training data
 │   ├── api-server.ts              # Optional HTTP API
 │   ├── settings.ts                # User settings
 │   ├── models/
 │   │   ├── ModelInterface.ts      # STTModel interface
 │   │   ├── ModelRouter.ts         # Model selection logic
-│   │   ├── ParakeetModel.ts       # Parakeet implementation
+│   │   ├── ParakeetModel.ts       # Parakeet implementation (persistent server)
 │   │   ├── CanaryModel.ts
 │   │   ├── DistilWhisperModel.ts
 │   │   ├── MoonshineModel.ts
@@ -509,6 +601,7 @@ listen/
 │       └── style.css
 ├── dist/                          # Compiled JavaScript
 ├── temp/                          # Temporary audio files
+├── window_focus.py                # Windows API focus management
 ├── docs/
 │   ├── ARCHITECTURE.md            # This file
 │   └── API.md                     # API documentation

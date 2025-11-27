@@ -61,6 +61,13 @@ pip install pyaudio
 
 The app automatically downloads Parakeet TDT 0.6B v3 on first use (~600MB).
 
+**Persistent Server Architecture:**
+- Model initializes once during app startup (~21 seconds)
+- Server stays running after initialization for fast repeated use
+- All transcriptions (first and onwards): ~1-2 seconds (model preloaded)
+- Model stays in GPU memory while app is running
+- Automatically restarts if connection lost
+
 **GPU Requirements:**
 - NVIDIA GPU with CUDA Compute Capability 6.0+ (RTX 3070 ✓)
 - CUDA Toolkit 12.8+
@@ -151,6 +158,24 @@ python -c "import torch; print(torch.cuda.is_available())"
 - Some apps block simulated keyboard input
 - Try pasting in a text editor first
 
+### App Startup Takes ~25 Seconds
+
+**This is normal!** Here's what happens when you start the app:
+1. Electron window opens
+2. Persistent Parakeet server initializes (~21 seconds)
+3. Model loads once into GPU memory
+4. App displays "Ready to record" - now it's ready to use
+
+**Once startup is done, transcriptions are instant** (~1-2 seconds each) because:
+- Model stays loaded in persistent server memory
+- Every transcription just does inference on the preloaded model
+- No re-initialization, just pure transcription
+
+**Timeline:**
+- `npm start` → waiting ~25 seconds... → ready to use
+- First transcription → ~1-2 seconds
+- All subsequent transcriptions → ~1-2 seconds each
+
 ---
 
 ## Development
@@ -200,15 +225,15 @@ rm -rf dist && npm run build
 - Use wired headset for better quality
 
 ### Transcription
-- RTX 3070: ~30 seconds for 5 second audio
-- Parakeet is fastest (3,333x real-time)
+- RTX 3070: ~30 seconds for 5 second audio (first run includes model load)
+- Parakeet is fastest available model for most use cases
 - Fallback models available if Parakeet unavailable
-- GPU acceleration recommended
+- GPU acceleration recommended for fastest inference
 
 ### Overall
-- First run slower (model download + cache)
-- Subsequent runs faster (~35 seconds total)
-- Auto-paste delayed if system busy
+- First run: ~35 seconds (includes model initialization)
+- Subsequent runs: ~6-7 seconds (model preloaded in persistent server)
+- Auto-paste immediate with proper window focus restoration
 
 ---
 
