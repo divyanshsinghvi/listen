@@ -1,76 +1,78 @@
 #!/usr/bin/env python3
 """
 Window focus management helper for WSL
-Uses PowerShell to interact with Windows window management
+Uses ctypes to directly call Windows APIs
 """
 import sys
 import json
-import subprocess
-import re
+import ctypes
+from ctypes import wintypes
+
+# Windows API functions
+try:
+    user32 = ctypes.windll.user32
+
+    # GetForegroundWindow
+    GetForegroundWindow = user32.GetForegroundWindow
+    GetForegroundWindow.restype = wintypes.HWND
+    GetForegroundWindow.argtypes = []
+
+    # GetWindowTextW
+    GetWindowTextW = user32.GetWindowTextW
+    GetWindowTextW.restype = wintypes.INT
+    GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, wintypes.INT]
+
+    # SetForegroundWindow
+    SetForegroundWindow = user32.SetForegroundWindow
+    SetForegroundWindow.restype = wintypes.BOOL
+    SetForegroundWindow.argtypes = [wintypes.HWND]
+
+    WINDOWS_API_AVAILABLE = True
+except Exception as e:
+    print(f"Warning: Windows API not available: {e}", file=sys.stderr)
+    WINDOWS_API_AVAILABLE = False
+
 
 def get_foreground_window():
-    """Get the currently focused window title using PowerShell"""
+    """Get the currently focused window handle and title"""
+    if not WINDOWS_API_AVAILABLE:
+        return None
+
     try:
-        # Use PowerShell to get the active window title
-        ps_command = """
-[System.Runtime.InteropServices.DllImport('user32.dll')]
-public static extern IntPtr GetForegroundWindow()
+        hwnd = GetForegroundWindow()
+        if not hwnd:
+            return None
 
-[System.Runtime.InteropServices.DllImport('user32.dll')]
-public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count)
+        # Get window title
+        title_buffer = ctypes.create_unicode_buffer(256)
+        GetWindowTextW(hwnd, title_buffer, 256)
+        title = title_buffer.value
 
-$hwnd = [WindowFocus]::GetForegroundWindow()
-$sb = New-Object System.Text.StringBuilder 256
-[WindowFocus]::GetWindowText($hwnd, $sb, 256) | Out-Null
-@{title=$sb.ToString(); handle=[Int64]$hwnd} | ConvertTo-Json
-"""
-
-        result = subprocess.run(
-            ['powershell.exe', '-NoProfile', '-Command', ps_command],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-
-        if result.returncode == 0:
-            window_data = json.loads(result.stdout.strip())
-            return {
-                'title': window_data.get('title', ''),
-                'handle': window_data.get('handle', 0)
-            }
+        return {
+            'title': title,
+            'handle': int(hwnd)
+        }
     except Exception as e:
         print(f"Error in get_foreground_window: {e}", file=sys.stderr)
+        return None
 
-    return None
 
 def restore_focus(window_info):
-    """Restore focus to a window using PowerShell"""
+    """Restore focus to a window by handle"""
+    if not WINDOWS_API_AVAILABLE:
+        return False
+
     if not window_info or not window_info.get('handle'):
         return False
 
     try:
-        handle = window_info.get('handle')
-
-        # PowerShell command to set focus
-        ps_command = f"""
-[System.Runtime.InteropServices.DllImport('user32.dll')]
-public static extern bool SetForegroundWindow(IntPtr hWnd)
-
-$hwnd = [IntPtr]{handle}
-[WindowFocus]::SetForegroundWindow($hwnd)
-"""
-
-        result = subprocess.run(
-            ['powershell.exe', '-NoProfile', '-Command', ps_command],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-
-        return result.returncode == 0
+        hwnd = wintypes.HWND(window_info['handle'])
+        result = SetForegroundWindow(hwnd)
+        return bool(result)
     except Exception as e:
         print(f"Error in restore_focus: {e}", file=sys.stderr)
         return False
+
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
