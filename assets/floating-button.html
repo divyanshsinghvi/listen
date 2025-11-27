@@ -127,8 +127,8 @@
     const body = document.body;
 
     let isDragging = false;
-    let dragStartX = 0;
-    let dragStartY = 0;
+    let dragStartX = null;
+    let dragStartY = null;
 
     // Click to toggle recording
     button.addEventListener('click', (e) => {
@@ -147,7 +147,7 @@
     });
 
     document.addEventListener('mousemove', (e) => {
-      if (e.buttons === 1 && dragStartX !== undefined) { // Left mouse button is pressed
+      if (e.buttons === 1 && dragStartX !== null) { // Left mouse button is pressed
         const deltaX = e.clientX - dragStartX;
         const deltaY = e.clientY - dragStartY;
 
@@ -165,8 +165,8 @@
         isDragging = false;
       }
       button.style.cursor = 'grab';
-      dragStartX = 0;
-      dragStartY = 0;
+      dragStartX = null;
+      dragStartY = null;
     });
 
     // Listen for state updates from main process
