@@ -133,8 +133,9 @@ function createFloatingButtonWindow() {
     resizable: false,
     focusable: false, // Don't steal focus when interacting with button
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      preload: path.join(__dirname, 'preload-floating-button.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
     },
   });
 

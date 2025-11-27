@@ -122,7 +122,6 @@
   </div>
 
   <script>
-    const { ipcRenderer } = require('electron');
     const button = document.getElementById('floating-button');
     const body = document.body;
 
@@ -134,7 +133,7 @@
     button.addEventListener('click', (e) => {
       // Only trigger if not dragging
       if (!isDragging) {
-        ipcRenderer.send('floating-button-click');
+        window.electronAPI.send('floating-button-click');
       }
     });
 
@@ -154,14 +153,14 @@
         // Consider it dragging if moved more than 3 pixels
         if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
           isDragging = true;
-          ipcRenderer.send('floating-button-drag', { deltaX, deltaY });
+          window.electronAPI.send('floating-button-drag', { deltaX, deltaY });
         }
       }
     });
 
     document.addEventListener('mouseup', () => {
       if (isDragging) {
-        ipcRenderer.send('floating-button-drag-end');
+        window.electronAPI.send('floating-button-drag-end');
         isDragging = false;
       }
       button.style.cursor = 'grab';
@@ -170,12 +169,12 @@
     });
 
     // Listen for state updates from main process
-    ipcRenderer.on('floating-button-state', (event, { state }) => {
+    window.electronAPI.on('floating-button-state', ({ state }) => {
       button.className = state;
     });
 
     // Request initial state
-    ipcRenderer.send('floating-button-ready');
+    window.electronAPI.send('floating-button-ready');
   </script>
 </body>
 </html>
