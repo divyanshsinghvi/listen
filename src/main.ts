@@ -92,7 +92,8 @@ async function toggleRecording() {
     console.log(`[TIME] [${new Date().toLocaleTimeString()}]`);
     console.log('='.repeat(60));
 
-    mainWindow.show();
+    // Show window without stealing focus from user's app
+    mainWindow.showInactive();
     mainWindow.setAlwaysOnTop(true, 'screen-saver');
     mainWindow.webContents.send('recording-state', { state: 'recording' });
 
