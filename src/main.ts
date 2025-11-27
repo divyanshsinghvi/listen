@@ -1,12 +1,54 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, screen } from 'electron';
 import * as path from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { RecordingManager } from './recording';
-import { TranscriptionService } from './transcription';
+import { ModularTranscriptionService } from './transcription-router';
+import { DatasetManager } from './dataset';
+
+const execAsync = promisify(exec);
 
 let mainWindow: BrowserWindow | null = null;
 let recordingManager: RecordingManager | null = null;
-let transcriptionService: TranscriptionService | null = null;
+let transcriptionService: ModularTranscriptionService | null = null;
 let isRecording = false;
+let previousWindowFocus: any = null;
+
+/**
+ * Capture the currently focused window so we can restore focus later
+ */
+async function captureWindowFocus(): Promise<any> {
+  try {
+    const { stdout } = await execAsync('python3 ' + path.join(__dirname, '..', 'window_focus.py') + ' get');
+    const windowInfo = JSON.parse(stdout.trim());
+    if (windowInfo.handle) {
+      console.log(`[OK] Captured focus: ${windowInfo.title || 'Unknown'}`);
+      return windowInfo;
+    }
+  } catch (error) {
+    console.log(`[WARN] Could not capture window focus: ${error}`);
+  }
+  return null;
+}
+
+/**
+ * Restore focus to the previously captured window
+ */
+async function restoreWindowFocus(windowInfo: any): Promise<boolean> {
+  if (!windowInfo || !windowInfo.handle) return false;
+
+  try {
+    const { stdout } = await execAsync(`python3 ${path.join(__dirname, '..', 'window_focus.py')} restore '${JSON.stringify(windowInfo).replace(/'/g, "'\\''")}'`);
+    const result = JSON.parse(stdout.trim());
+    if (result.success) {
+      console.log(`[OK] Restored focus to: ${windowInfo.title || 'previous window'}`);
+    }
+    return result.success;
+  } catch (error) {
+    console.log(`[WARN] Could not restore window focus: ${error}`);
+  }
+  return false;
+}
 
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
@@ -40,9 +82,18 @@ async function toggleRecording() {
   if (!mainWindow) return;
 
   if (!isRecording) {
-    // Start recording
+    // Start recording - capture current window focus first
+    previousWindowFocus = await captureWindowFocus();
+
     isRecording = true;
-    mainWindow.show();
+    const recordingStartTime = Date.now();
+    console.log('\n' + '='.repeat(60));
+    console.log('[MIC] RECORDING STARTED');
+    console.log(`[TIME] [${new Date().toLocaleTimeString()}]`);
+    console.log('='.repeat(60));
+
+    // Show window without stealing focus from user's app
+    mainWindow.showInactive();
     mainWindow.setAlwaysOnTop(true, 'screen-saver');
     mainWindow.webContents.send('recording-state', { state: 'recording' });
 
@@ -50,40 +101,160 @@ async function toggleRecording() {
       recordingManager = new RecordingManager();
     }
 
-    await recordingManager.startRecording();
+    try {
+      await recordingManager.startRecording();
+      console.log('[OK] Audio stream initialized');
+    } catch (error) {
+      console.error('[ERROR] Recording start error:', error);
+      isRecording = false;
+    }
   } else {
     // Stop recording
     isRecording = false;
+    const pipelineStart = Date.now();
+    console.log('\n' + '='.repeat(60));
+    console.log('[STOP] RECORDING STOPPED');
+    console.log('='.repeat(60));
+
     mainWindow.webContents.send('recording-state', { state: 'processing' });
 
     if (recordingManager) {
-      const audioFilePath = await recordingManager.stopRecording();
-
-      // Transcribe
-      if (!transcriptionService) {
-        transcriptionService = new TranscriptionService();
-      }
-
       try {
-        const transcription = await transcriptionService.transcribe(audioFilePath);
+        const recordStop = Date.now();
+        const audioFilePath = await recordingManager.stopRecording();
+        const recordTime = Date.now() - recordStop;
+        console.log(`[OK] Recording finalized (${recordTime}ms)`);
 
-        // Copy to clipboard
-        clipboard.writeText(transcription);
+        // Check if file exists and has size
+        const fs = require('fs');
+        if (fs.existsSync(audioFilePath)) {
+          const size = fs.statSync(audioFilePath).size;
+          console.log(`📁 Audio file: ${audioFilePath}`);
+          console.log(`   Size: ${(size / 1024).toFixed(2)} KB`);
+          console.log(`   Duration: ${(size / 32000).toFixed(1)}s (approx)`);
+        } else {
+          throw new Error(`Audio file not found: ${audioFilePath}`);
+        }
 
-        mainWindow.webContents.send('recording-state', {
-          state: 'completed',
-          text: transcription
-        });
+        console.log(`\n[TIME] [Stage: File Ready] +${Date.now() - pipelineStart}ms`);
 
-        // Hide window after a short delay
-        setTimeout(() => {
+        // Transcription service already initialized on app startup
+        if (!transcriptionService) {
+          console.error('[ERROR] Transcription service not available');
+          throw new Error('Transcription service failed to initialize');
+        }
+
+        try {
+          console.log(`\n[TIME] [Stage: Starting Transcription] +${Date.now() - pipelineStart}ms`);
+
+          const transcribeStart = Date.now();
+          // Auto-select best model for desktop
+          const result = await transcriptionService.transcribe(audioFilePath, {
+            routingPreferences: {
+              priority: 'balance',
+              platform: 'desktop',
+              language: 'en'
+            }
+          });
+
+          const transcribeTime = Date.now() - transcribeStart;
+          console.log(`\n[TIME] [Stage: Transcription Complete] +${Date.now() - pipelineStart}ms (took ${transcribeTime}ms)`);
+
+          console.log(`\n[RESULTS] TRANSCRIPTION RESULTS:`);
+          console.log(`  [OK] Text: "${result.text}"`);
+          console.log(`  [OK] Model: ${result.modelUsed}`);
+          console.log(`  [OK] Confidence: ${result.confidence ? (result.confidence * 100).toFixed(1) : 'N/A'}%`);
+          console.log(`  [INFO] Model inference: ${result.duration}ms`);
+
+          // Save to dataset for training
+          try {
+            const datasetManager = new DatasetManager();
+            const fs = require('fs');
+            const fileSize = fs.existsSync(audioFilePath) ? fs.statSync(audioFilePath).size : 0;
+
+            // Calculate recording duration from file size
+            // WAV format: 16kHz, mono, 16-bit = 32,000 bytes per second
+            // Subtract 44 bytes for WAV header
+            const recordingDuration = fileSize > 44 ? Math.round(((fileSize - 44) / 32000) * 1000) : 0;
+
+            await datasetManager.saveEntry(audioFilePath, {
+              transcription: result.text,
+              confidence: result.confidence ?? 0,
+              model: result.modelUsed,
+              language: 'en',
+              duration: recordingDuration,
+              fileSize: fileSize
+            });
+          } catch (datasetError) {
+            console.error('[WARN] Failed to save dataset entry:', datasetError);
+          }
+
+          // Copy to clipboard
+          const clipboardStart = Date.now();
+          clipboard.writeText(result.text);
+          const clipboardTime = Date.now() - clipboardStart;
+          console.log(`\n[TIME] [Stage: Clipboard] +${Date.now() - pipelineStart}ms (took ${clipboardTime}ms)`);
+          console.log(`  [OK] Text copied to clipboard`);
+
+          // Hide window immediately
           mainWindow?.hide();
-        }, 1500);
-      } catch (error) {
-        console.error('Transcription error:', error);
+
+          // Auto-paste using Ctrl+V
+          console.log(`\n[TIME] [Stage: Auto-Paste] +${Date.now() - pipelineStart}ms`);
+          console.log(`  [NOTE] Text copied to clipboard`);
+          console.log(`  [INFO] Restoring focus to original window...`);
+
+          // Restore focus to original window and paste
+          setTimeout(async () => {
+            const pasteStart = Date.now();
+            try {
+              // Restore focus to the original window
+              const focusRestored = await restoreWindowFocus(previousWindowFocus);
+              if (focusRestored) {
+                console.log(`  [OK] Focus restored`);
+              } else {
+                console.log(`  [WARN] Could not restore focus, attempting paste anyway`);
+              }
+
+              // Small delay to ensure window is ready to receive input
+              await new Promise(resolve => setTimeout(resolve, 100));
+
+              // Use Python to simulate Ctrl+V paste
+              await execAsync('python3 -c "import pyautogui; pyautogui.hotkey(\'ctrl\', \'v\')"');
+              const pasteTime = Date.now() - pasteStart;
+              const totalTime = Date.now() - pipelineStart;
+
+              console.log(`\n  [OK] Text pasted successfully (${pasteTime}ms)`);
+              console.log(`${'='.repeat(60)}`);
+              console.log(`[DONE] PIPELINE COMPLETE - Total time: ${totalTime}ms`);
+              console.log(`   Recording: N/A`);
+              console.log(`   Transcription: ${transcribeTime}ms`);
+              console.log(`   Clipboard: ${clipboardTime}ms`);
+              console.log(`   Paste: ${pasteTime}ms`);
+              console.log(`${'='.repeat(60)}\n`);
+            } catch (error) {
+              console.error(`  [ERROR] Error pasting text:`, error);
+              console.log(`  [INFO] Text is in clipboard - paste manually with Ctrl+V`);
+              console.log(`\n${'='.repeat(60)}`);
+              console.log(`[WARN] PIPELINE COMPLETE (manual paste needed) - Total time: ${Date.now() - pipelineStart}ms`);
+              console.log(`${'='.repeat(60)}\n`);
+            }
+          }, 100);
+        } catch (transcriptionError) {
+          console.error('[ERROR] Transcription error:', transcriptionError);
+          mainWindow.webContents.send('recording-state', {
+            state: 'error',
+            error: transcriptionError instanceof Error ? transcriptionError.message : 'Transcription failed'
+          });
+          setTimeout(() => {
+            mainWindow?.hide();
+          }, 2000);
+        }
+      } catch (recordingError) {
+        console.error('[ERROR] Recording stop error:', recordingError);
         mainWindow.webContents.send('recording-state', {
           state: 'error',
-          error: error instanceof Error ? error.message : 'Transcription failed'
+          error: recordingError instanceof Error ? recordingError.message : 'Recording failed'
         });
         setTimeout(() => {
           mainWindow?.hide();
@@ -116,9 +287,25 @@ function registerShortcuts() {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   createWindow();
   registerShortcuts();
+
+  // Load transcription service and model on startup
+  console.log('[INIT] Initializing transcription service...');
+  transcriptionService = new ModularTranscriptionService();
+
+  try {
+    await transcriptionService.initialize();
+    console.log('[OK] Model loaded successfully - ready for transcription!');
+  } catch (error) {
+    console.error('[ERROR] Failed to load model:', error);
+  }
+
+  // Signal UI that app is ready
+  if (mainWindow) {
+    mainWindow.webContents.send('app-ready');
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

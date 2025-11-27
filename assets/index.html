@@ -66,21 +66,70 @@
       margin-top: 8px;
     }
 
-    .transcription {
-      color: #4CAF50;
-      font-size: 14px;
+    .transcription-box {
+      width: 100%;
+      min-height: 120px;
+      max-height: 200px;
       margin-top: 15px;
-      padding: 10px;
-      background: rgba(76, 175, 80, 0.1);
+      padding: 12px;
+      background: rgba(76, 175, 80, 0.05);
+      border: 2px solid rgba(76, 175, 80, 0.3);
       border-radius: 8px;
-      max-height: 100px;
+      color: #ffffff;
+      font-size: 14px;
+      font-family: 'Segoe UI', sans-serif;
+      resize: vertical;
       overflow-y: auto;
       word-wrap: break-word;
+    }
+
+    .transcription-box:focus {
+      outline: none;
+      border-color: #4CAF50;
+      background: rgba(76, 175, 80, 0.1);
+    }
+
+    .transcription-box::placeholder {
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+      justify-content: center;
+    }
+
+    button {
+      background: rgba(76, 175, 80, 0.2);
+      border: 1px solid rgba(76, 175, 80, 0.5);
+      color: #4CAF50;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: rgba(76, 175, 80, 0.4);
+      border-color: #4CAF50;
+      transform: translateY(-2px);
+    }
+
+    button:active {
+      transform: translateY(0);
     }
 
     .error {
       color: #f44336;
       background: rgba(244, 67, 54, 0.1);
+      border-color: rgba(244, 67, 54, 0.3);
+    }
+
+    .error-text {
+      color: #f44336;
     }
 
     .processing-spinner {
@@ -107,32 +156,117 @@
       100% { transform: rotate(360deg); }
     }
 
-    .waveform {
+    .speech-indicator {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
-      height: 40px;
+      gap: 8px;
+      height: 50px;
       margin: 15px 0;
     }
 
-    .waveform span {
-      display: inline-block;
-      width: 4px;
-      background: #4CAF50;
-      border-radius: 2px;
-      animation: wave 1s ease-in-out infinite;
+    .dot {
+      width: 12px;
+      height: 12px;
+      background: rgba(76, 175, 80, 0.4);
+      border-radius: 50%;
+      animation: listen 1.5s ease-in-out infinite;
     }
 
-    .waveform span:nth-child(1) { height: 10px; animation-delay: 0s; }
-    .waveform span:nth-child(2) { height: 20px; animation-delay: 0.1s; }
-    .waveform span:nth-child(3) { height: 30px; animation-delay: 0.2s; }
-    .waveform span:nth-child(4) { height: 20px; animation-delay: 0.3s; }
-    .waveform span:nth-child(5) { height: 10px; animation-delay: 0.4s; }
+    .dot:nth-child(1) { animation-delay: 0s; }
+    .dot:nth-child(2) { animation-delay: 0.2s; }
+    .dot:nth-child(3) { animation-delay: 0.4s; }
 
-    @keyframes wave {
-      0%, 100% { transform: scaleY(0.5); }
-      50% { transform: scaleY(1); }
+    @keyframes listen {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 0.4;
+      }
+      50% {
+        transform: scale(1.3);
+        opacity: 1;
+        background: #4CAF50;
+      }
+    }
+
+    .speech-detected {
+      color: #4CAF50;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-top: 8px;
+      animation: speechPulse 0.6s ease-out;
+    }
+
+    @keyframes speechPulse {
+      0% {
+        opacity: 0;
+        transform: scale(0.8);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .listening-text {
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    .loading-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(10, 10, 15, 0.98);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .loading-title {
+      color: #ffffff;
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 50px;
+      height: 50px;
+      margin: 20px 0;
+    }
+
+    .loading-spinner:after {
+      content: " ";
+      display: block;
+      width: 40px;
+      height: 40px;
+      margin: 5px;
+      border-radius: 50%;
+      border: 4px solid #4CAF50;
+      border-color: #4CAF50 transparent #4CAF50 transparent;
+      animation: spinner 1.2s linear infinite;
+    }
+
+    .loading-text {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 14px;
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    .loading-subtext {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 12px;
+      margin-top: 10px;
     }
 
     .hidden {
@@ -141,7 +275,14 @@
   </style>
 </head>
 <body>
-  <div id="app">
+  <div id="loading-screen" class="loading-screen">
+    <div class="loading-title">🚀 Listen</div>
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Loading AI model...</div>
+    <div class="loading-subtext">First time setup (this takes 15-20 seconds)</div>
+  </div>
+
+  <div id="app" class="hidden">
     <div class="container">
       <div id="status-display">
         <!-- Content will be dynamically updated -->
@@ -160,13 +301,12 @@
           statusDisplay.innerHTML = `
             <div class="status-icon recording-icon">🎙️</div>
             <div class="status-text">Listening...</div>
-            <div class="waveform">
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
+            <div class="speech-indicator">
+              <div class="dot"></div>
+              <div class="dot"></div>
+              <div class="dot"></div>
             </div>
+            <div class="listening-text">Waiting for speech...</div>
             <div class="status-subtext">Press Ctrl+Shift+Space to stop</div>
           `;
           break;
@@ -212,8 +352,30 @@
       updateUI(data.state, data);
     });
 
-    // Initialize with idle state
-    updateUI('idle');
+    // Listen for speech detection events
+    ipcRenderer.on('speech-detected', () => {
+      const listeningText = document.querySelector('.listening-text');
+      if (listeningText) {
+        listeningText.innerHTML = '<div class="speech-detected">✓ Speech Detected</div>';
+
+        // Reset after 1 second
+        setTimeout(() => {
+          listeningText.innerHTML = '<div class="listening-text">Listening...</div>';
+        }, 1000);
+      }
+    });
+
+    // Listen for app ready event (loading complete)
+    ipcRenderer.on('app-ready', () => {
+      const loadingScreen = document.getElementById('loading-screen');
+      const appDiv = document.getElementById('app');
+
+      loadingScreen.classList.add('hidden');
+      appDiv.classList.remove('hidden');
+
+      // Initialize with idle state
+      updateUI('idle');
+    });
 
     // Handle escape key
     document.addEventListener('keydown', (e) => {

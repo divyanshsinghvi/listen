@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import * as os from 'os';
 
 const execAsync = promisify(exec);
 
@@ -9,6 +10,7 @@ export class RecordingManager {
   private audioFilePath: string;
   private recordingProcess: any = null;
   private tempDir: string;
+  private platform: string;
 
   constructor() {
     this.tempDir = path.join(process.cwd(), 'temp');
@@ -16,13 +18,50 @@ export class RecordingManager {
       fs.mkdirSync(this.tempDir, { recursive: true });
     }
     this.audioFilePath = path.join(this.tempDir, `recording_${Date.now()}.wav`);
+    this.platform = os.platform();
   }
 
   async startRecording(): Promise<void> {
-    // Use arecord on Linux (ALSA)
-    // For macOS, you would use 'sox' or 'rec'
-    // For Windows, you would use different approach
+    if (this.platform === 'win32') {
+      return this.recordWithWindowsAudio();
+    } else {
+      return this.recordWithLinuxAudio();
+    }
+  }
 
+  private recordWithWindowsAudio(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        const { spawn } = require('child_process');
+
+        // Use PyAudioWPatch for fast, reliable Windows audio recording
+        const scriptPath = path.join(__dirname, '..', 'scripts', 'record_audio_windows.py');
+
+        // Spawn Python process for recording
+        this.recordingProcess = spawn('python', [scriptPath, this.audioFilePath]);
+
+        this.recordingProcess.stdout?.on('data', (data: any) => {
+          console.log(`🎤 ${data.toString().trim()}`);
+        });
+
+        this.recordingProcess.stderr?.on('data', (data: any) => {
+          console.error(`Recording error: ${data.toString().trim()}`);
+        });
+
+        this.recordingProcess.on('error', (error: Error) => {
+          console.error('Recording process error:', error);
+          reject(error);
+        });
+
+        // Start recording immediately
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  private recordWithLinuxAudio(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
         // Check if arecord is available (Linux)
