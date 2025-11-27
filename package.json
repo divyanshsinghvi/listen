@@ -6,7 +6,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "concurrently \"npm run build:watch\" \"wait-on dist/main.js && electron .\"",
-    "build": "tsc",
+    "build": "tsc && node scripts/copy-preload.js",
     "build:watch": "tsc --watch",
     "package": "electron-builder"
   },
