@@ -599,6 +599,8 @@ listen/
 │   └── assets/
 │       ├── index.html             # UI
 │       └── style.css
+├── scripts/
+│   └── record_audio_windows.py    # PyAudioWPatch Windows audio recording
 ├── dist/                          # Compiled JavaScript
 ├── temp/                          # Temporary audio files
 ├── window_focus.py                # Windows API focus management
