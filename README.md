@@ -61,7 +61,7 @@ npm install
 
    **Option G: Canary Qwen 2.5B (#1 Accuracy)**
    ```bash
-   ./install-canary.sh  # 2.5B params, 5.63% WER, 418x real-time
+   ./install-canary.sh  # 2.5B params, 5.63% WER, 
    ```
 
    > **Note:** The app will automatically use the fastest available model. Install multiple models for automatic fallback. **Only models you install will be used.**
