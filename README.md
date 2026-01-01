@@ -14,7 +14,7 @@ A multi-platform voice-to-text app with intelligent model routing, allowing you 
 - 🪟 Always-on-top overlay (Desktop)
 - 📱 **Native iOS (Swift + WhisperKit)** and **Android (Kotlin + TFLite)** apps
 - 🔒 **100% offline** - All processing on-device, no cloud services
-- ⚡ Ultra-fast transcription (up to 15x real-time)
+- ⚡ Ultra-fast transcription 
 
 ## Setup
 
